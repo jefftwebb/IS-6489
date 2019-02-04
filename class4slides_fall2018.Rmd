@@ -1,0 +1,1015 @@
+---
+title: "Class 4: Statistics and Predictive Analytics"
+author: "Jeff Webb"
+output: 
+    beamer_presentation:
+      incremental: yes
+      
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, results='asis', cache=F, warning = F, message = F)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(arm)
+library(shiny)
+d <- read.csv("day.csv")
+```
+
+
+## Outline of class tonight
+- Final Project questions?
+- Lab 1 questions?
+- Class 4 slides
+    + Review statistical inference
+    + Introduction to linear regression
+    + Regression assumptions
+    + Homework
+- Live coding interspersed
+
+# Review statistical inference
+
+## Topics for review
+
+![](class2success.png)
+
+## Topics for review
+
+- probability mass function for a discrete distribution	
+- null distribution
+- criticism of p-values
+- confidence intervals
+- the bootstrap
+
+## Random variables
+
+- Toss a fair coin 3 times. We model this as  $B(3, .5)$.
+- We can use  random variable, $X$, to describe the number of heads:  0, 1, 2, or 3. (Random variables are represented with capital letters.)
+- A random variable is just a compact notation for describing the familiar idea of something picked at random according to a probability distribution.
+- Remember: a random variable is different from an algebraic variable because it can't be solved for, but is fundamentally probabilistic.
+- The probability that $X$ takes a particular value is called the "probability mass function." (If $X$ were a continuous random variable then we would have a probability density function instead.) 
+
+## Probability density function
+- For a binomial random variable, the probability mass function is given by $f(k) = \binom{n}{k} p^k (1-p)^{n-k}.$
+- For simplicity we could say that in three tosses of a coin there are $2^3=8$ possible combinations:  HHH, HHT, HTH, THH, HTT, TTH, THT, TTT.
+- The probabilities for heads are as follows:
+    + $P(X=0)$: TTT or 1/8
+    + $P(X=1)$: HTT, TTH, THT or 3/8
+    + $P(X=2)$: HHT, HTH, THH or 3/8
+    + $P(X=3)$: HHH or 1/8
+    
+## Central limit theroem
+- The distribution produced by the binomial mass function is bell-shaped (1/8, 3/8, 3/8, 1/8), due to the central limit theorem.
+- When we sum or average random variables (even non-normal ones, like Bernoulli trials) the result will be normal (very closely so at large $n$).
+- Why does this matter?
+
+## Statistical inference in regression
+
+- In regression we want to know if $\beta$, a theoretical population value, which we have estimated with $\hat\beta$, is different from 0. 
+- Unfortunately, we are always working with samples, which vary, and we must make an educated guess about whether our observed $\hat\beta$  is consistent with a population $\beta$ of 0.
+- What do we do?  
+
+## Statistical inference in regression
+- **Proof by contradiction**.
+- Assume what you want to disprove---that $\beta$ = 0---and construct a **null distribution** of $\hat\beta$s that you would expect from repeated sampling of the population ($\beta$ = 0).
+- Key point: regression slopes are averages are therefore normally distributed (or, in practice, T-distributed) per the CLT.
+- We compare our observed $\hat\beta$ to the null distribution to derive a probability value ("p-value"), which is the proportion of values under the null that would be equal to or more extreme than what we observed.
+- If the p-value is less than .05 we reject the null hypothesis as probably false.
+
+## Example:  $\beta$ = 0
+
+```{r echo= F}
+
+df <- data.frame(x=rnorm(1000), y=rnorm(1000))
+ggplot(df , aes(x,y)) +
+  geom_point() +
+  stat_smooth(method="lm", se = F)+
+  theme_minimal()
+
+```
+
+## Example:  variation in $\hat\beta$ for repeated samples
+
+```{r echo= F}
+
+ggplot(df , aes(x,y)) +
+  geom_point() +
+  theme_minimal() +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) 
+
+```
+
+## Example:  variation in $\hat\beta$ for repeated samples
+
+```{r echo= F}
+
+ggplot(df , aes(x,y)) +
+  geom_point() +
+  theme_minimal() +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) +
+  stat_smooth(data= df[sample(nrow(df), replace=T),], method= "lm", se =F, size = .5, alpha=.5) 
+
+```
+
+
+## Example:  null distribution of slopes
+
+```{r echo =F}
+null <- replicate(10000, mean(rnorm(100, mean = 0, sd = 1)))
+
+ggplot(data.frame(null=null), aes(null)) +
+  geom_density() +
+  xlim(c(-.5, .5)) +
+  labs(x = expression(beta)) 
+```
+
+## Example:  null distribution for $\beta$ = 0
+
+```{r echo =F}
+ggplot(data.frame(null=null), aes(null)) +
+  geom_density() +
+  xlim(c(-.5, .5)) +
+  labs(x = expression(beta)) +
+  annotate("text", label=".025 Prob", x = -.3, y = 1) +
+  annotate("text", label=".025 Prob", x = .3, y = 1) +
+  annotate("text", label=".95 Prob", x = 0, y = 4.5) +
+  geom_vline(xintercept = c(quantile(null, probs = .025), quantile(null, probs = .975)), lty = 2) 
+  
+```
+
+## Example:  null distribution for $\beta$ = 0
+
+```{r echo =F}
+ggplot(data.frame(null=null), aes(null)) +
+  geom_density() +
+  xlim(c(-.5, .5)) +
+  annotate("text", label=".025 Prob", x = -.3, y = 1) +
+  annotate("text", label=".025 Prob", x = .3, y = 1) +
+  annotate("text", label=".95 Prob", x = 0, y = 4.5) +
+  geom_vline(xintercept = c(quantile(null, probs = .025), quantile(null, probs = .975)), lty = 2) + 
+  geom_vline(xintercept = -.47, lty = 2, col=2) +
+  annotate("text", label="observed \n difference,\n p < .05", x = -.37, y = 3, col = 2)+
+  labs(title = paste("Null distribution", expression(beta)),
+       x = expression(beta)) 
+```
+
+## P-values 
+
+- P-values represent the unlikeliness of an observation under the null, addressing the question:  "was this result due to chance?"
+- Beware: you can have tiny effects that are not due to chance but are irrelevant from a practical standpoint.
+- Imagine that an academic program increases student term GPA by .01, with p-value < .05. 
+- The program appears to have a real effect. **But who cares!**
+- What we do care about is the **size** of an effect ("effect size"), expressed in the magnitude of |$\hat\beta$| , **along with** statistical significance.
+
+## Confidence intervals (CIs)
+- We can get statistical significance from CIs, plus a lot more information, such as:
+    + the range of plausible values for $\hat\beta$ (and thus an estimate of uncertainty).
+    + the distance of $\hat\beta$ from 0.
+    + the magnitude of the effect.
+- P-values tend to obscure these essential nuances in favor of a single binary decision metric.
+
+## 95% CIs
+- 95% CIs do not offer a formal decision procedure.
+- However, they indicate the 95% range of most likely values, under repeated sampling, for $\hat\beta$ and thus show estimation uncertainty. 
+- If the CI for $\hat\beta$ contains 0 then we can say roughly that the predictor is not statistically significant. This situation corresponds to p > .05.
+- If the CI does *not* contain 0 then we can say that the slope *is* statistically significant. This situation corresponds to p < .05.
+- In NHST we assume a null distribution against which to test $\hat\beta$ using formal decision procedures.
+- With 95% CIs we simply check to see if the interval includes 0.
+- 95% CI:  [$\hat\beta$ - 2 x $SE$, $\hat\beta$ + 2 x $SE$]
+
+
+## Example: 95% CIs
+```{r echo =F}
+set.seed(123)
+df <- data.frame(x = rnorm(n=1000, mean = -2.7, sd=1))
+
+q <- quantile(df$x, probs = c(.025, .975))
+
+ggplot(df, aes(x)) +
+  geom_density()  +
+  xlim(c(-7,3))+
+  annotate("text", label=".95 Prob (2 SE)", x = -2.5, y = .45) +
+  geom_vline(xintercept = c(q[1], q[2]), lty = 2) + 
+  #geom_vline(xintercept = 0, lty = 2, col=2) +
+  labs(title = paste("Values consistent with observed", expression(beta)),
+       x = expression(beta))  +
+  geom_segment(x = q[1], xend =q[2], y=.42, yend=.42,size=.11, 
+               arrow=arrow(length = unit(0.2,"cm")))+
+  geom_segment(x = q[2], xend =q[1], y=.42, yend=.42,size=.11, 
+               arrow=arrow(length = unit(0.2,"cm")))
+```
+
+
+## Example: 95% CIs
+```{r echo =F}
+set.seed(123)
+df <- data.frame(x = rnorm(n=1000, mean = -2.7, sd=1))
+
+q <- quantile(df$x, probs = c(.025, .975))
+
+ggplot(df, aes(x)) +
+  geom_density()  +
+  xlim(c(-7,3))+
+  annotate("text", label=".95 Prob (2 SE)", x = -2.5, y = .45) +
+  geom_vline(xintercept = c(q[1], q[2]), lty = 2) + 
+  geom_vline(xintercept = 0, lty = 2, col=2) +
+  annotate("text", label="0 slope", x = 1, y = .25, col = 2)+
+  labs(title = paste("Values consistent with observed", expression(beta)),
+       x = expression(beta))  +
+  geom_segment(x = q[1], xend =q[2], y=.42, yend=.42,size=.11, 
+               arrow=arrow(length = unit(0.2,"cm")))+
+  geom_segment(x = q[2], xend =q[1], y=.42, yend=.42,size=.11, 
+               arrow=arrow(length = unit(0.2,"cm")))
+```
+
+## 95% (2 SE) CIs for regression coefficients
+
+```{r echo = F, results='markup'}
+data(mtcars) 
+m <- lm(mpg ~ cyl + disp + hp + drat+wt+qsec, data=mtcars)
+
+display(m)
+```
+
+## Forest plot for regression coefficients
+
+```{r echo = F}
+coefplot(m)
+```
+
+
+## Canvas quiz
+
+- The null distribution for $\hat\beta$ is (pick the best answer):
+1. The distribution of NAs in any dataset
+2. The values we would expect for $\hat\beta$, under repeated sampling, if there were no relationship between predictor and outcome.
+3. A distribution that we are trying to prove is not consistent with $H_a$.
+4. What we assume in order to contradict.
+5. All but the first.
+
+
+## Canvas quiz
+
+- 95% confidence intervals (pick the best answer):
+1. Should be ignored when you have p-values.
+2. Represent a high confidence region for the null distribution.
+3. Can prove the truth of the null hypothesis.
+4. Represent possible values of  $\hat\beta$
+
+
+## The bootstrap
+- With the bootstrap we simulate the sampling distribution for any test statistic (like $\hat\beta$). This is known as the "bootstrap distribution."
+- Sampling distribution? 
+- A sampling distribution is the distribution of values we would expect for the test statistic under repeated sampling.
+- We can use the bootstrap distribution to calculate $SE$s and CIs. 
+- $SE$? 
+- A standard error is just the standard deviation of a test statistic's estimated sampling distribution.
+- Best to demonstrate:  class4script.R
+
+# Introduction to linear regression
+
+
+## Data 
+
+```{r results='markup', echo = F}
+str(d[,-c(1:3, 12, 15:16)])
+```
+
+
+## The regression function
+- We can define a function that gives us conditional means.
+- For any temperature, t, define  $$\mu(t) =\mathbf{E}[riders \mid temperature = t]$$ which is the mean number of riders when temperature = t.   
+- $\mathbf{E}$ stands for "expected value" and is mathematical notation for the mean, in this case a conditional mean:  average riders given some temperature $t$.  
+- Since we can vary $t$, this is indeed a function, and it is known as the **regression function** of riders on temperature.
+
+## The regression function
+- Regression function: $\mu(t) =\mathbf{E}[riders \mid temperature = t]$
+- $\mu(.68)$ is the mean number of riders when t = .68 and $\mu(.05)$ is the mean number of riders when t = .05, etc. 
+- The actual value of $\mu(.68)$, note, is unknown because it is a population value.  It does exist, just not in our sample.  
+- So we must estimate $\mu(.68)$ using the riders-temperature pairs we have in our data: $(R_{1}, T_{1}), ..., (R_{731}, T_{731})$ 
+- How do we find $\hat{\mu}(t)$?
+
+## Estimating the regression function {.build}
+  * One approach is to simply calculate the relevant conditional means from our data.
+  * In the case of temp, we will simplify by rounding to two decimal places. 
+```{r, echo=F, results='markup', warning = F}
+d %>% 
+  mutate(temp = round(temp, 2)) %>% 
+  group_by(temp) %>%
+  summarize(mean = mean(cnt)) %>% 
+  data.frame() %>% 
+  head() %>%
+  print(row.number = F)
+```
+
+  * Notice that there are values missing from the sequence!
+
+## Plot of $\hat{\mu}(t)$
+```{r echo=F}
+muhat <- d %>% mutate(temp = round(temp, 2)) %>% group_by(temp) %>% summarize(mean=mean(cnt))
+muhat <- as.data.frame(muhat)
+
+muhat_alt <- data.frame(temp=seq(.05, .86, .01), mean=NA)
+
+muhat <- left_join(muhat_alt, muhat, by="temp")[,c(1,3)]
+ggplot(muhat, aes(temp, mean.y)) +
+  geom_point(col=2, size= 2) +
+  theme_minimal() +
+  labs(title="Estimated mean daily riders", 
+       x="temperature",
+       y="mean riders") +
+  geom_line(col=2)
+```
+
+## Parametric and non-parametric estimation methods
+- The above approach to finding  $\hat{\mu}(t)$ using  conditional means is *non-parametric*.  
+- That is, we have assumed nothing about the shape of the unknown function $\mu(t)$ if it were plotted on a graph, but have simply estimated it directly from our data. 
+- K-nearest neighbors regression (KNN) is a generalization of this non-parametric approach.
+- However, we could make some assumptions about that shape, possibly improving our estimates, which would make our approach *parametric*.
+- More on that in a few minutes.  
+
+## The intuition behind KNN
+- Sometimes it is not possible to calculate good conditional means for y due to missing or few x values (as we've seen). 
+- Suppose  we wanted to find $\hat{\mu}(.12)$.   
+- There were no days in our dataset when the temperature was .12! 
+- The KNN algorithm solves this problem by using the k closest observations to t = .12 to calculate the conditional mean, $\hat{\mu}(.12)$.
+- If we defined k = 4 then we would take the *four* closest values to .12 in the dataset---perhaps .127, .128, .111, .109. 
+- "Closest" is defined as Euclidean distance, which in 1-dimensional space (a number line) is just: $\sqrt{(x-y)^2}$. 
+- These values would then be used to calculate $\hat{\mu}(.12)$ 
+
+## Euclidean distance in 1 dimension for k = 4 nearest neighbors
+
+```{r echo=FALSE}
+
+d %>%
+  arrange(temp) %>%
+  dplyr::select(temp) %>%
+  head(10) %>%
+  mutate(y = 0) %>%
+  mutate(target = .12,
+         distance = sqrt((temp -target)^2),
+         closest = rank(distance)) %>%
+  ggplot(aes(temp, y)) +
+  geom_line() +
+  geom_point(size=2) + 
+  theme_minimal() +
+ scale_y_discrete(breaks = NULL) +
+  theme(panel.grid.minor=element_blank(),
+           panel.grid.major=element_blank(),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(y = "", x="")+
+  annotate("text", label = "", x = .1275, y = .1) +
+  annotate("text", label = "", x = .1075, y = .1) +
+  annotate("text", label = "", x = .1335, y = .1) +
+  annotate("text", label = "", x = .139, y = .1) +
+  annotate("text", label = "", x = .09, y = -.1, hjust = 0) +
+  annotate("text", label = "", x = .1275, y = -.1) +
+  annotate("text", label = "", x = .1075, y = -.1) +
+  annotate("text", label = "", x = .1335, y = -.1) +
+  annotate("text", label = "", x = .139, y = -.1) +
+  annotate("text", label = "", x = .09, y = -.3, hjust = 0) +
+  annotate("text", label = "", x = .09, y = -.4, hjust = 0) 
+  
+
+
+```
+
+
+## Euclidean distance in 1 dimension for k = 4 nearest neighbors
+
+
+```{r echo=FALSE}
+
+d %>%
+  arrange(temp) %>%
+  dplyr::select(temp) %>%
+  head(10) %>%
+  mutate(y = 0) %>%
+  mutate(target = .12,
+         distance = sqrt((temp -target)^2),
+         closest = rank(distance)) %>%
+  ggplot(aes(temp, y)) +
+  geom_line() +
+  geom_point(size=2) + 
+  theme_minimal() +
+ scale_y_discrete(breaks = NULL) +
+  theme(panel.grid.minor=element_blank(),
+           panel.grid.major=element_blank(),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(y = "", x="")+
+  geom_point(x = .12, size =4, shape = 17) +
+  annotate("text", label = ".12", x = .12, y = .1) +
+  annotate("text", label = "", x = .1075, y = .1) +
+  annotate("text", label = "", x = .1335, y = .1) +
+  annotate("text", label = "", x = .139, y = .1) +
+  annotate("text", label = "", x = .09, y = -.1, hjust = 0) +
+  annotate("text", label = "", x = .1275, y = -.1) +
+  annotate("text", label = "", x = .1075, y = -.1) +
+  annotate("text", label = "", x = .1335, y = -.1) +
+  annotate("text", label = "", x = .139, y = -.1) +
+  annotate("text", label = "", x = .09, y = -.3, hjust = 0) +
+  annotate("text", label = "", x = .09, y = -.4, hjust = 0) 
+  
+
+```
+
+## Euclidean distance in 1 dimension for k = 4 nearest neighbors
+
+
+```{r echo=FALSE}
+
+ d %>%
+  arrange(temp) %>%
+  dplyr::select(temp) %>%
+  head(10) %>%
+  mutate(y = 0) %>%
+  mutate(target = .12,
+         distance = sqrt((temp -target)^2),
+         closest = rank(distance)) %>%
+  ggplot(aes(temp, y)) +
+  geom_line() +
+  geom_point(size=2) + 
+  theme_minimal() +
+ scale_y_discrete(breaks = NULL) +
+  theme(panel.grid.minor=element_blank(),
+           panel.grid.major=element_blank(),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(y = "", x="")+
+  geom_point(x = .12, size =4, shape = 17) +
+  annotate("text", label = ".12", x = .12, y = .1) +
+  geom_point(x = .1275, size =3, col = 2) +
+  geom_point(x = .1075, size =3, col = 2)+
+  geom_point(x = .134783, size =3, col = 2)+
+  geom_point(x = .138330, size =3, col = 2) +
+  annotate("text", label = ".128", x = .1275, y = .1) +
+  annotate("text", label = ".108", x = .1075, y = .1) +
+  annotate("text", label = ".135", x = .1335, y = .1) +
+  annotate("text", label = ".138", x = .139, y = .1) +
+  annotate("text", label = "", x = .09, y = -.1, hjust = 0) +
+  annotate("text", label = "", x = .1275, y = -.1) +
+  annotate("text", label = "", x = .1075, y = -.1) +
+  annotate("text", label = "", x = .1335, y = -.1) +
+  annotate("text", label = "", x = .139, y = -.1) +
+  annotate("text", label = "", x = .09, y = -.3, hjust = 0) +
+  annotate("text", label = "", x = .09, y = -.4, hjust = 0) 
+
+```
+
+## Euclidean distance in 1 dimension for k = 4 nearest neighbors
+
+
+```{r echo=FALSE}
+
+ d %>%
+  arrange(temp) %>%
+  dplyr::select(temp, cnt) %>%
+  head(10) %>%
+  mutate(y = 0) %>%
+  mutate(target = .12,
+         distance = sqrt((temp -target)^2),
+         closest = rank(distance)) %>%
+  ggplot(aes(temp, y)) +
+  geom_line() +
+  geom_point(size=2) + 
+  theme_minimal() +
+ scale_y_discrete(breaks = NULL) +
+  theme(panel.grid.minor=element_blank(),
+           panel.grid.major=element_blank(),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(y = "", x="")+
+  geom_point(x = .12, size =4, shape = 17) +
+  annotate("text", label = ".12", x = .12, y = .1) +
+  geom_point(x = .1275, size =3, col = 2) +
+  geom_point(x = .1075, size =3, col = 2)+
+  geom_point(x = .134783, size =3, col = 2)+
+  geom_point(x = .138330, size =3, col = 2) +
+  annotate("text", label = ".128", x = .1275, y = .1) +
+  annotate("text", label = ".108", x = .1075, y = .1) +
+  annotate("text", label = ".135", x = .1335, y = .1) +
+  annotate("text", label = ".138", x = .139, y = .1) +
+  annotate("text", label = "Daily riders:", x = .09, y = -.1, hjust = 0) +
+  annotate("text", label = "1529", x = .1275, y = -.1) +
+  annotate("text", label = "2368", x = .1075, y = -.1) +
+  annotate("text", label = "1605", x = .1335, y = -.1) +
+  annotate("text", label = "822", x = .139, y = -.1) +
+    annotate("text", label = "", x = .09, y = -.3, hjust = 0) +
+  annotate("text", label = "", x = .09, y = -.4, hjust = 0) 
+
+  
+
+```
+
+
+## Euclidean distance in 1 dimension for k = 4 nearest neighbors
+
+
+```{r echo=FALSE}
+
+ d %>%
+  arrange(temp) %>%
+  dplyr::select(temp, cnt) %>%
+  head(10) %>%
+  mutate(y = 0) %>%
+  mutate(target = .12,
+         distance = sqrt((temp -target)^2),
+         closest = rank(distance)) %>%
+  ggplot(aes(temp, y)) +
+  geom_line() +
+  geom_point(size=2) + 
+  theme_minimal() +
+ scale_y_discrete(breaks = NULL) +
+  theme(panel.grid.minor=element_blank(),
+           panel.grid.major=element_blank(),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(y = "", x="")+
+  geom_point(x = .12, size =4, shape = 17) +
+  annotate("text", label = ".12", x = .12, y = .1) +
+  geom_point(x = .1275, size =3, col = 2) +
+  geom_point(x = .1075, size =3, col = 2)+
+  geom_point(x = .134783, size =3, col = 2)+
+  geom_point(x = .138330, size =3, col = 2) +
+  annotate("text", label = ".128", x = .1275, y = .1) +
+  annotate("text", label = ".108", x = .1075, y = .1) +
+  annotate("text", label = ".135", x = .1335, y = .1) +
+  annotate("text", label = ".138", x = .139, y = .1) +
+  annotate("text", label = "Daily riders:", x = .09, y = -.1, hjust = 0) +
+  annotate("text", label = "1529", x = .1275, y = -.1) +
+  annotate("text", label = "2368", x = .1075, y = -.1) +
+  annotate("text", label = "1605", x = .1335, y = -.1) +
+  annotate("text", label = "822", x = .139, y = -.1) +
+  annotate("text", label = "K = 4 estimate for temp = .12:", x = .09, y = -.3, hjust = 0) +
+  annotate("text", label = "(2368 + 1529 + 1605 + 822) / 4 = 1586", x = .09, y = -.4, hjust = 0) 
+  
+
+  
+
+```
+
+
+## KNN fit, k = 3
+
+```{r echo=FALSE}
+library(FNN)
+r <- d
+r$temp_rounded <- round(r$temp,2)
+
+knn3 <- knn.reg(train=r$temp, y=r$cnt, k=3, algorithm="brute")
+r$knn3 <- knn3$pred
+ 
+est3 <-  r %>% 
+  group_by(temp_rounded) %>%  
+  summarize(cnt=mean(cnt), knn3=mean(knn3))
+
+plot_knn3 <- ggplot(est3, aes(temp_rounded, est3$cnt)) +
+         geom_point(size = 2) +
+         labs(y="riders",
+              x ="temperature", 
+              title ="Mean Actual (black) vs. Fitted (red), k = 3")+
+         geom_line(aes(x=est3$temp_rounded, y=est3$knn3), col=2) +
+  theme_minimal()
+
+plot_knn3
+```
+
+
+## KNN fit, k = 50
+
+```{r echo=FALSE}
+knn50 <- knn.reg(train=r$temp, y=r$cnt, k=50, algorithm="brute")
+r$knn50 <- knn50$pred
+ 
+est50 <-  r %>% 
+  group_by(temp_rounded) %>%  
+  summarize(cnt=mean(cnt), knn50=mean(knn50))
+
+plot_knn50 <- ggplot(est50, aes(temp_rounded, est50$cnt)) +
+         geom_point(size = 2) +
+         labs(y="riders",
+              x ="temperature", 
+              title ="Mean Actual (black) vs. Fitted (red), k = 50")+
+         geom_line(aes(x=est50$temp_rounded, y=est50$knn50), col=2) +
+  theme_minimal()
+
+plot_knn50
+```
+
+
+## Which fit is better? K = 3 or k = 50?
+
+```{r echo=FALSE}
+library(gridExtra)
+
+
+grid.arrange(plot_knn3, plot_knn50, nrow=1)
+```
+
+## What do we mean by "better"?
+
+- We seek a model in which the fitted or predicted values for every outcome are close to the actual values.
+- In other words, **we want to minimize model error**.
+- To do so, we first need to **measure** model error.
+
+## Residuals
+- A residual is the difference between each actual $y_i$ and its corresponding estimated or "fitted" y.   
+- We designate the fitted y's with a hat ($\hat{y_i}$). 
+- Residuals:  $y_{i} - \hat{y}_{i}$
+
+
+## Measures of model error
+- Residual sum of squares (RSS): $\sum_{i=1}^{n}({y_i}-\hat{y}_{i})^2$ 
+- Mean squared error (MSE): $\frac{1}{n}\sum_{i=1}^{n}({y_i}-\hat{y}_{i})^2$
+- Root Mean squared error (MSE): $\sqrt{\frac{1}{n}\sum_{i=1}^{n}({y_i}-\hat{y}_{i})^2}$ 
+
+## Which fit is better? K = 3 or k = 50?
+
+```{r echo=FALSE}
+grid.arrange(plot_knn3, plot_knn50, nrow=1)
+```
+
+
+## EXPLORATION: Explore KNN regression
+
+- class4script.R
+
+## Linear regression
+
+- We don't know the  form $\mu$ actually  has but it could be (roughly) linear.
+- Ridership rises linearly until about temperature = .6, at which point it seems to get too hot to ride and use declines. 
+
+
+## Linear regression
+
+```{r, echo=F}
+ggplot(d, aes(temp, cnt)) +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "ridership ~ temperature")
+```
+
+## Linear regression
+
+```{r, echo=F}
+ggplot(d, aes(temp, cnt)) +
+  geom_point() +
+  stat_smooth(method="lm", se = F, col=2)+
+  theme_minimal() +
+  labs(title = "ridership ~ temperature")
+```
+
+
+## Linear regression
+- Let's assume for the moment that this relationship is linear.
+- Hence, $\mu(t) = \beta_0 + \beta_1 t$, where $\beta_0$ is the intercept and $\beta_1$ is the slope of a line. 
+- In other words, $ridership = \beta_0 + \beta_1 temperature$
+- This linear model is *parametric* because the line is completely described by *parameters*: intercept ($\beta_0$) and slope ($\beta_1$).
+- Since $\mu(t)$ is a population function, the $\beta_0$ and $\beta_1$ parameters are population values (and are thus unknown), but we can estimate them from our sample using R's lm() function. 
+- As estimates we will denote them $\hat\beta_0$ and $\hat\beta_1.$
+
+
+## Model: riders $\sim$ temperature
+
+Example output.  Where is $\hat\beta_0$ and $\hat\beta_1$?
+
+```{r, results='markup'}
+model <- lm(cnt~temp, data = d)
+arm::display(model)
+```
+
+## Multiple regression
+- Simple linear regression has one **predictor or independent variable** and one **outcome or dependent variable**. 
+- When we regress riders on temperature, riders is the outcome variable---what we are predicting---and temperature is the predictor.
+- It is easy to extend linear regression to the multivariable case, where there are multiple predictors of a single outcome variable.
+- (It is possible to have multiple outcome variables, too, but we won't be discussing that type of model in this class.)
+- Multivariable regression: $$y_i =\hat\beta_0 + \hat\beta_1 x_{i1} + \cdots + \hat\beta_p x_{ip} + \varepsilon_i, \qquad i = 1, \ldots, n$$ where $i$ indexes rows and $p$ indexes predictors.
+
+
+## Matrix notation
+
+- We will refer to everything on the right hand side of the multivariable regression equation as the **linear predictor**, $X \beta$.
+
+- $X$ is a square matrix with $n$ rows (where n = the number of observations) and $p$ columns (where p = the number of predictors):
+
+![](matrix.png)
+
+## OLS fit
+lm() implements the ordinary least squares (OLS) algorithm which finds the single line (out of a very large number of possibilities) that minimizes the sum of squared residuals (RSS). 
+
+```{r echo = F}
+dsub <- d[sample(nrow(d),100), ]
+dsub$predicted <- predict(lm(cnt~temp, data=dsub))
+
+tss <- round(sum((dsub$cnt - mean(dsub$cnt))^2))
+rss <- round(sum((dsub$cnt - dsub$predicted)^2))
+
+ ggplot(dsub, aes(temp, cnt)) +
+  geom_smooth(method = "lm", se = FALSE, col=2) +  # Plot regression slope
+  geom_segment(aes(xend = temp, yend = predicted), alpha = .2) +  # alpha to fade lines
+  geom_point() +
+  theme_minimal() +
+  labs(title = "Residuals for ridership ~ temp")
+```
+
+## Canvas quiz
+
+- Model residuals are:
+1. $y_i - \hat{y}_i$
+2. $(y_i - \hat{y}_i)^2$
+3. $\frac{1}{n}(y_i - \hat{y}_i)^2$
+4. $\sum(y_i - \hat{y}_i)^2$
+5. $\sqrt{\frac{1}{n}(y_i - \hat{y}_i)^2}$
+
+
+## PRACTICE: Explore lm()
+
+- class4script.R
+
+## The regression model
+- Every parametric statistical model has a deterministic or **systematic component** and a **stochastic component**.
+- Stochastic means: "determined by chance." 
+- The systematic component in our case is simply the equation of the least squares line:  $\hat\beta_0 + \hat\beta_1x_{i}$, where $\hat\beta_0$ and $\hat\beta_1$ are constants estimated by the least squares algorithm.
+- But in order to *fully* describe the data, a stochastic component---the residuals---must be added to the systematic component as an error term.  
+- Complete model: $y_{i} = \hat\beta_{0} +\hat\beta_{1}x_{i} + \epsilon_{i}$
+- Systematic component only:  $\hat y_{i} = \hat\beta_{0} +\hat\beta_{1}x_{i}$.
+- In linear regression, we make an assumption that the stochastic component of the model, the residuals,  come from a normal distribution: $\epsilon_{i} \sim N(0, \sigma^2)$
+
+
+## Sources of uncertainty in modelling
+*Estimation uncertainty*: Lack of knowledge of the $\beta$ parameters. Vanishes as n gets larger and standard errors get smaller. 
+
+```{r echo = F}
+
+n <- 50
+a <- 1.4
+b <- 2.3
+sigma <- 10
+set.seed(123)
+df <- data.frame(x = runif(n))
+df$y <- a + b*df$x + rnorm(n,0, sigma)
+
+p1 <- ggplot(df, aes(x, y)) +
+  geom_point() +
+  theme_minimal() +
+  stat_smooth(method="lm")+
+  ylim(c(-30,30)) +
+  labs(title = "y = 1.4 + 2.3x. n = 50.")
+
+n <- 500
+a <- 1.4
+b <- 2.3
+sigma <- 10
+set.seed(123)
+df <- data.frame(x = runif(n))
+df$y <- a + b*df$x + rnorm(n,0, sigma) 
+  
+
+p2 <- ggplot(df, aes(x, y)) +
+  geom_point() +
+  theme_minimal() +
+  stat_smooth(method="lm")+
+  ylim(c(-30,30))+
+  labs(title = "y = 1.4 + 2.3x. n = 500.")
+
+grid.arrange(p1,p2,nrow=1)
+```
+
+## Sources of uncertainty in modelling
+*Fundamental uncertainty*: Represented by the stochastic component ($\epsilon$). Exists no matter what the researcher does, no matter how large n is.
+
+```{r echo = F}
+
+n <- 50
+a <- 1.4
+b <- 2.3
+sigma <- 10
+set.seed(123)
+df <- data.frame(x = runif(n))
+df$y <- a + b*df$x + rnorm(n,0, sigma)
+
+rmse <- function(actual, fitted) sqrt(mean((actual - fitted)^2))
+
+error1 <- rmse(df$y, a + b*df$x)
+p1 <- ggplot(df, aes(x, y)) +
+  geom_point() +
+  theme_minimal() +
+  stat_smooth(method="lm", se= F)+
+  ylim(c(-30,30)) +
+  labs(title = "y = 1.4 + 2.3x. n = 50.  RMSE = 9.3")
+
+n <- 500
+a <- 1.4
+b <- 2.3
+sigma <- 10
+set.seed(123)
+df <- data.frame(x = runif(n))
+df$y <- a + b*df$x + rnorm(n,0, sigma) 
+  
+error2 <- rmse(df$y, a + b*df$x)
+p2 <- ggplot(df, aes(x, y)) +
+  geom_point() +
+  theme_minimal() +
+  stat_smooth(method="lm", se = F)+
+  ylim(c(-30,30))+
+  labs(title = "y = 1.4 + 2.3x. n = 500. RMSE = 10.05")
+
+grid.arrange(p1,p2,nrow=1)
+```
+
+ 
+
+
+
+## Interpreting the regression equation
+- $y_i = \hat\beta_0 + \hat\beta_1x_i + \epsilon_i$ where  $\epsilon_i$ ~ $N(0, \sigma_{resid})$.
+- The intercept, $\beta_0$, is the average predicted value of $y$  when $x$ = 0.
+- The slope coefficient, $\hat\beta_1$, represents the average predicted change in $y$ associated with a 1-unit increase in $x$, or, more formally:
+- $\hat E[y_x] = \hat\beta_0 + \hat\beta_1x_1$
+- $\hat E[y_{x + 1}] = \hat\beta_0 + \hat\beta_1(x_1 + 1)$
+- $\hat\beta_1 = \hat E[y_{x+1}] - \hat E[y_{x+1}]$
+
+
+## Interpreting the regression equation 
+```{r echo = F}
+n <- 50
+a <- 1.4
+b <- 2.3
+sigma <- 10
+set.seed(123)
+df <- data.frame(x = runif(n, 0, 10))
+df$y <- a + b*df$x + rnorm(n,0, sigma)
+mod <- lm(y~x, df)
+
+ggplot(df, aes(x, y))+
+  geom_point()+ 
+  stat_smooth(method="lm", se= F)+
+  theme_minimal() +
+  ylim(c(-20,40))
+```
+
+
+## Interpreting the regression equation 
+```{r echo = F}
+
+mod <- lm(cnt ~ temp, data=d)
+
+ggplot(df, aes(x, y))+
+  stat_smooth(method="lm", se= F)+
+  theme_minimal() +
+  annotate("text", label = "y = -.02 + 2.68x", x = 7, y= 5)+
+  ylim(c(-20,40))
+```
+
+
+## Interpreting the regression equation 
+```{r echo = F}
+
+mod <- lm(cnt ~ temp, data=d)
+
+ggplot(df, aes(x, y))+
+  stat_smooth(method="lm", se= F)+
+  theme_minimal() +
+  annotate("text", label = "y = -.02 + 2.68x", x = 7, y= 5) +
+  geom_segment(x = 5, xend =6, y = 13.3852, yend=13.3852) +
+  geom_segment(x = 6, xend =6, y = 13.3852, yend=16.06694)+
+  annotate("text", label = "Increase in x: 1 unit", x = 7.5, y= 15, hjust = 0) + 
+  annotate("text", label = "Change in y: 2.68 units", x = 7.5, y= 13, hjust = 0)+
+  ylim(c(-20,40))
+```
+
+
+## Prediction vs. description
+- In *prediction* the goal is to maximize predictive accuracy. (The variables themselves may not be of interest). 
+- KNN regression doesn't even compute $\beta$ coefficients. (In this sense it is a blackbox algorithm.) 
+- In *description* the goal is to understand the nature and strength of the relationships between the predictor variables and the outcome.  
+- For example, we may not want to *predict* a student's grade so much as *understand* what factors contribute to it.  
+- Description is also known as *inference* (since we are inferring properties of the population from our analysis of a sample.) 
+- Linear regression works well for both prediction and description.
+
+
+## Predicting with the regression equation
+- We can use the *regression equation* to calculate fitted values for specific values of $x$.
+- Suppose $\hat y$ = 1 + 3$x_1$ - 6$x_2$.
+- We want to find the value of y when  $x_1$ = 0 and $x_2$ = 10.
+- Fitted $y$ for those values of $x$ is:  1 + 3 x 0 - 6 x 10 = -60
+
+## Canvas quiz
+
+- Suppose your model equation is $\hat y = 2 + 5x_1 + 3x_2$.  What is the fitted value of $y$ for $x_1 = 2$ and $x_2 = .5$?
+1. 9.5
+2. 8.5
+3. 11.5
+4. 13.5
+
+## PRACTICE: Interpreting linear model output
+
+- class4script.R
+
+## Additional measures of model fit: $R^2$
+- $R^2$: scaled between 0 and 1 and is therefore a standardized measure of fit, comparable across contexts.
+- $R^2$ = $1 - \frac{SS_\text{resid}}{SS_\text{tot}}$
+- $SS_\text{tot}=\sum_i (y_i-\bar{y})^2$
+- $SS_\text{res}=\sum_i (y_i - \hat{y_i})^2$
+- In words:  $R^2$ represents the variation in the outcome variable explained by the model as a proportion of the total variation.  
+- For $cnt \sim temp$, $R^2$ = .39.
+- Temperature explains 39% of the overall variation in bike ridership.
+- The better the linear regression fits the data in comparison to the simple average the closer the value of $R^2$ is to 1.
+
+## Measures of model fit: $R^2$
+For simple linear regression, $R^2$ is the squared correlation between the outcome and predictor variables (when an intercept is included).
+
+```{r, results='markup'}
+display(lm(cnt ~ temp, data=d))
+
+cor(d$cnt, d$temp)^2
+```
+
+
+## Visualizing $R^2$
+
+```{r, echo=F, message=F, warning=F}
+dsub <- d[sample(nrow(d),100), ]
+dsub$predicted <- predict(lm(cnt~temp, data=dsub))
+
+tss <- round(sum((dsub$cnt - mean(dsub$cnt))^2))
+rss <- round(sum((dsub$cnt - dsub$predicted)^2))
+
+require(gridExtra)
+
+dsub$mean <- mean(dsub$cnt) 
+plot1 <- ggplot(dsub, aes(temp, cnt)) +
+  geom_hline(yintercept=mean(dsub$cnt), col=2) +  # Plot regression slope
+  geom_segment(aes(xend = temp, yend = mean), alpha = .2) +  # alpha to fade lines
+  geom_point() +
+  theme_bw() + ggtitle(paste("Total Sum of Squares \n",tss))
+
+plot2 <- ggplot(dsub, aes(temp, cnt)) +
+  geom_smooth(method = "lm", se = FALSE, col=2) +  # Plot regression slope
+  geom_segment(aes(xend = temp, yend = predicted), alpha = .2) +  # alpha to fade lines
+  geom_point() +
+  theme_bw() +
+ggtitle(paste("Residual Sum of Squares \n",rss))
+grid.arrange(plot1, plot2, ncol=2)
+```
+
+## Measures of model fit: Adjusted $R^2$
+
+- One problem with $R^2$ is that adding variables to the model tends to improve it, even when those additions lead to overfitting.
+- A variant of $R^2$ has been developed that penalizes the measure for additional predictors: **adjusted $R^2$**, $\bar R^2$.
+- $$\bar R^2 = {R^2-(1-R^2){p \over n-p-1}}$$ where $p$ is the number of predictors and $n$ is the number of observations.
+
+
+
+## PRACTICE:  More linear regression
+
+- class4script.R
+
+# Homework
+
+## Homework
+
+- Review chapter 3 on regression in *Statistical Learning*
+- Complete Lab 2
+- Supplementary reading:  Gelman, chapter 3 and 4 (posted on Canvas).
+ 
+## Canvas quiz
+
+Which topics did you feel you understood best?
+
+- p-values
+- confidence intervals
+- bootstrap coding
+- null distribution
+- regression function
+- residuals 
+- error metrics ($R^2$, RMSE, etc.)
+- KNN regression
+- Interpreting regression coefficients
+- Using the regression equation for prediction
+- caret syntax and use
+- centering and scaling regression model inputs
+- using the bootstrap for statistical communication
+- statistical inference in regression

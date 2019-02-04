@@ -1,0 +1,313 @@
+---
+title: "IS 6489: Statistics and Predictive Analytics"
+subtitle: Class 9
+author: Jeff Webb
+output: 
+  beamer_presentation:
+    theme: "Madrid"
+    #colortheme: "dolphin"
+    fonttheme: "structurebold"
+    incremental:  true
+    fig_width: 7
+    fig_height: 6
+    fig_caption:  false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, results='asis', cache=T, warning=F, message = F)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(arm)
+library(car)
+library(ISLR)
+data(Default)
+d <- Default
+
+
+
+
+```
+
+## Agenda
+- Finish Support Vector Machines
+- Final exam discussion
+- Review practice final
+- Technical writing best practices
+- Reproducible research
+
+# Support vector machines
+
+## Maximal margin hyperplane with support vectors
+```{r echo=F}
+
+set.seed(11)
+data <- data.frame(
+  x1 = jitter(c(1,2,3,.5,1.5,2.5,4,5,6,3.5,4.5,5.5), factor=5), x2 = jitter(c(4,5,6,4,5,6, 1,2,3,1,2,3), factor=10),
+  class= factor(c(rep("event",6), rep("no event",6))))
+
+
+mod <- glm(class ~ x1 + x2, data= data, family = binomial)
+
+data$line <- (coef(mod)[1]+ data$x1*coef(mod)[2])/-(coef(mod)[3])
+
+
+
+ggplot(data, aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+    theme_minimal() +
+  geom_line(aes(x1, line), col=1) +
+  geom_line(aes(x1, line+1.8), col=1, lty=2)+
+  geom_line(aes(x1, line-1.8), col=1, lty=2) +
+  ylim(c(0,7.5)) +
+  xlim(c(0,8.5)) +
+  annotate("text", x = 4, y = 3, label="Margin", size= 3)+
+  annotate("text", x = 4, y = 4.8, label="Margin", size = 3) +
+  annotate("text", x = 7.5, y = 5, label="Separating \n Hyperplane", size = 3) +
+  annotate("text", x = 7.7, y = 3, label="Support Vector", size = 3)+
+  annotate("text", x = 7.7, y = 6.5, label="Support Vector", size = 3)
+
+```
+
+## Why is a larger margin better?
+
+```{r echo=F}
+library(gridExtra)
+
+plot1 <- ggplot(data, aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+    theme_minimal() +
+  geom_line(aes(x1, line), col=1) +
+  geom_line(aes(x1, line+1.8), col=1, lty=2)+
+  geom_line(aes(x1, line-1.8), col=1, lty=2) +
+  ylim(c(0,7.5)) +
+  xlim(c(0,8.5))+
+  labs(title= "Large margin")+
+guides(col=FALSE)
+
+plot2 <- ggplot(data, aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+    theme_minimal() +
+  geom_abline(intercept =-4, slope =2.5)+
+  ylim(c(0,7.5)) +
+    xlim(c(0,8.5)) +
+  geom_abline(intercept =-6, slope =2.5, col=1, lty=2) +
+  geom_abline(intercept =-2, slope =2.5, col=1, lty=2)+
+  labs(title= "Small margin")+
+guides(col=FALSE)
+
+grid.arrange(plot1, plot2, ncol=2)
+
+```
+
+## Types of SVM
+
+- *Introduction to Statistical Learning* identifies three SVM-related algorithms that we will treat as instances of SVM as follows:
+    1. Linear SVM with linearly separable classes.
+    2. Linear SVM with linearly non-separable (overlapping) classes.
+    3. Radial and Polynomial SVM for non-linear decision surfaces.
+    
+- Note: The math behind SVM is relatively advanced and beyond the scope of this class.
+    
+## SVM: separable and non-separable cases
+
+- When the train data are linearly separable the goal in SVM is to find the  separating hyperplane that allows for maximum margin M---maximum distance between the hyperplane and the closest point.  
+- The larger the margin the more likely the model will have low variance and perform well with new data.
+- Usually, however, the data will not be linearly separable and there will be no maximal margin hyperplane.  
+- In that case, we cannot exactly separate the two classes. 
+- However, we can extend the concept of a separating hyperplane in order to find a hyperplane that *almost* separates the classes, using what is known as a *soft margin*. 
+
+## SVM: non-separable (overlapping) case
+
+```{r echo=F}
+set.seed(12)
+data <- data.frame(
+  x2 = jitter(c(1,2,3,.5,1.5,2.5,1,3,4,3.5,4.5,5.5), factor=5), x1 = jitter(c(1,3,4,1,3,4, 1,2,3,1,2,3), factor=10),
+  class= factor(c(rep("event",6), rep("no event",6))))
+
+mod <- glm(class ~ x1 + x2, data= data, family = binomial)
+
+data$line <- (coef(mod)[1]+ data$x1*coef(mod)[2])/-(coef(mod)[3])
+
+ggplot(data,aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+  theme_minimal() +
+  geom_line(aes(x1, line), col=1) +
+   geom_line(aes(x1, line+.5), col=1, lty=2)+
+  geom_line(aes(x1, line-.5), col=1, lty=2)
+
+```
+
+## SVM: non-separable (overlapping) case
+- To find a soft margin for SVM we must choose a tuning parameter, $C$, that increases with violations of the margin and the hyperplane.
+- There are two kinds of violations represented by what are known as "slack variables", $\epsilon_i$, which represent the *distance* from the margin according to the following rules:
+    1. $\epsilon_i$ = 0 if the observation is on the right side of the hyperplane and the margin.
+    2. $\epsilon_i$ > 0 if the observation is on the right side of the hyperplane but in the margin.
+    3. $\epsilon_i$ > 1 if the observation is on the wrong side of the hyperplane.
+- $C$ = $\sum_{n = 1}^{i} \epsilon_i$. 
+- $C$ is essentially a *budget* for the amount that the margin can be violated by the $n$ observations.
+- Increasing the budget for C allows more violations, leading to wider margins and a high bias, low variance classifier.
+- Decreasing the budget allows fewer violations, leading to narrower margins and a low bias, high variance classifier.
+
+## Tuning parameter C and SVM margin width
+
+```{r echo=F}
+
+plot1 <- ggplot(data,aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+  theme_minimal() +
+  geom_line(aes(x1, line), col=1) +
+   geom_line(aes(x1, line+.5), col=1, lty=2)+
+  geom_line(aes(x1, line-.5), col=1, lty=2) +
+  labs(title = "Small C",
+        subtitle =  "lower bias, higher variance") +
+  ylim(c(0, 7))+
+  guides(col=FALSE)
+
+plot2 <- ggplot(data,aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+  theme_minimal() +
+  geom_line(aes(x1, line), col=1) +
+   geom_line(aes(x1, line+1.5), col=1, lty=2)+
+  geom_line(aes(x1, line-1.5), col=1, lty=2) +
+  labs(title = "Large C",
+       subtitle= "higher bias, lower variance")+
+guides(col=FALSE)+
+  ylim(c(0, 7))
+
+grid.arrange(plot1, plot2, ncol=2)
+```
+
+
+## Non-linear decision boundary
+
+![](nonlinear.png)
+
+
+## Radial and Polynomial SVM
+
+- Linear SVM can fit a non-linear decision boundary (just as with logistic regression) by enlarging the feature space with interaction and polynomial terms.
+- A more computationally efficient way of enlarging the feature space, however, is with *kernels.*
+- We won't go into these methods much here except to say that the "kernel trick" involves adding a dimension to linearly inseparable data to make it linearly separable with a hyperplane.
+- There are some novel visualizations of the kernel trick online (https://www.youtube.com/watch?v=3liCbRZPrZA&list=PLD6F90D381F0D4B79).
+- If you encounter a non-linear decision boundary it can be worth trying a radial or polynomial SVM.
+
+## Example of non-linear radial and polynomial SVM decision boundaries
+
+![](radialpolySVM.png)
+
+# Final exam
+
+## Final exam
+- More practice available in the final exam folder:  exam_practice.Rmd and exam_practice_answers.Rmd.
+- The actual final will be similar in style and content to the practice final, only easier.
+- Expect the following topics:
+    + data modeling and cleaning
+    + conceptual terrain of the course:  regression vs. classification; inference vs. prediction.
+    + EDA:  plotting, data summaries.
+    + model interpretation:  effect sizes, meaning of coefficients for both linear and logistic regression.
+    + using caret to fit a variety of models.
+    + model comparison.
+    + cross-validation: conceptually and in practice.
+    + statistical communication: plotting and explaining results.
+
+## Review practice final
+
+- practice_final_exam_answers.Rmd
+
+    
+# Technical Writing and Statistical Communication
+
+## Writing guidelines: figures
+- How do people read? (Quickly, sloppily) 
+- Solution:  Convey your main point in a plot  
+- Pick **one** plot to convey your main point.  It should tell your "story."
+- Plots are better than tables. (Why?) 
+- You can include more than one plot but make sure you have one that tells the main story.  
+- And make sure that if you include more than one they add value to the storyline.  
+- The reader should be able to get your main point from skimming your report and looking at the plots and tables. 
+- Always use captions that provide context and that tell the reader what the plot or table means (what key point does it convey?) 
+- The plot and caption should stand alone, in the sense of being interpretable even if the reader does not read the text (most won't). 
+- It is okay for the caption to repeat what is in the  text of the report. 
+- Reference the figure/table in your text:  "In Figure 2, we see that ...."
+
+## Figure example with caption
+![](gelman_plot3.jpg)
+
+
+
+## Table example with caption
+![](gelman_table1.jpg)
+
+
+## Writing guidelines: white space and structure
+- Use white space and structure---bolded headings, subheadings, lists with italicized main points---to help convey your findings.  
+- Avoid big blocks of text unless the main point is summarized in an informative heading or subheading. 
+- Write so that a reader could read the headings, subheadings, bulleted points and the table and figure captions and  still get the gist of your report. 
+- Redundancy is usually not a virtue but it has a place in report writing:  repeat your figure and table captions in the text and again in your summary section.  
+- That's right:  **start with an enumerated  summary or findings section.**
+
+## White space and headings example 
+![](text1.jpg)
+
+# Reproducible research 
+
+
+## Reproducible research 
+
+- Why is it a good idea to use R markdown? (R notebooks are a version of R markdown.)
+- This file type enables you to make your research *reproducible* because your code is kept together with your analysis.
+- If you have your R script in one file (or many, if you have different versions) and your word document write-up in another, what guarantees that six months later you'll be able to remember which script produced the results you wrote up? (If you can find the script at all.)
+- R markdown keeps the code with your analysis and makes your work perfectly reproducible.
+- If you want to run the whole report with just a minor change---like filtering the data for 2017 rather than 2016---then you can do that easily, especially if you have not hardcoded your results.
+- Not only that, R markdown, when used correctly, looks really good.
+
+
+## Example .Rmd template
+
+- Rmd_report_template.Rmd
+
+<!-- # Simulating QI -->
+
+<!-- ## Simulating QI -->
+<!-- - Never report only model coefficients.  Try to translate them into quantities that make sense in terms of the business context!  -->
+<!-- - This translation can be challenging, partly because we must figure out what, given our audience, would be of interest. -->
+<!-- - Because audiences, research objectives, and business contexts vary, QI are unique to each analytic situation. -->
+<!-- - It is important to include uncertainty in our discussion of QI to drive home the point that we are working with samples, not the population, and that our estimates are, after all, just estimates. -->
+<!-- - One convenient way to estimate uncertainty in point estimates is with simulation. -->
+
+<!-- ## Uncertainty -->
+
+<!-- - There are two kinds of uncertainty in any statistical model: -->
+<!--     + Estimation uncertainty -->
+<!--     + Fundamental uncertainty -->
+<!-- - Model of $\hat{y}$: $\hat{y}_i = \hat\beta_0 + \hat\beta_1x_i$ -->
+<!-- - Model of y: $y_i = \hat\beta_0 + \hat\beta_1x_i + \epsilon_i$ -->
+<!-- - Estimation uncertainty is lack of knowledge of the  $\beta$ parameters. -->
+<!-- - Estimation uncertainty vanishes as  n gets larger and  SEs get smaller. -->
+<!-- - Fundamental uncertainty is represented by the stochastic component of the model, $\epsilon$ -->
+<!-- - It exists no matter what the researcher does, no matter how large n is. -->
+
+<!-- ## Uncertainty -->
+<!-- - When calculating QI we express uncertainty about our point estimates with 95% CIs. -->
+<!-- - A 95% CI based on estimation uncertainty only will be less conservative than one based on both estimation uncertainty *and* fundamental uncertainty. -->
+<!-- - The first reflects the variability in *expected* or *fitted*  values. -->
+<!-- - The second reflects the variability in *predicted* values, which (probably more realistically) includes $\epsilon$. -->
+<!-- - Here we will focus on estimation uncertainty only. -->
+
+
+<!-- ## Example:  QI for expected ridership -->
+
+<!-- - With QI estimation the goal is to use the model to create many sets of plausible coefficients by bootstrap simulation or other methods. -->
+<!-- - In the case of bootstrapping, we then compute QI using the simulated coefficients.  -->
+<!-- - Let's illustrate with the bikeshare data. -->
+<!-- - We define appropriate QI in this case by imagining a business context.  -->
+<!-- - Let’s say that the manager of the bikeshare program has seen the program grow over the past two years and, knowing that bike usage is heavier in the summer months, is nervous about having enough bikes for the upcoming summer, especially in June---the heaviest riding month.  -->
+<!-- - So, the QI we decide to report is expected ridership in June of 2013.  -->
+<!-- - We'll explain ridership with: year, month, temp, humidity, windspeed, temp$^2$. -->
+<!-- - We'll consider how maximum daily ridership changes in June with fluctuations in temperature. -->
+
+<!-- ## PRACTICE: calculating QI -->
+
+<!-- - class9script.R -->
+

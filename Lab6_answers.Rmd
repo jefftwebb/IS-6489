@@ -1,0 +1,391 @@
+---
+title: "Statistics and Predictive Analytics, Lab 6"
+author: "Your name here"
+output:
+  html_notebook
+---
+
+Last lab!
+
+In lecture we talked about ROC curves, class decision thresholds and introduced SVMs. This lab will give you practice working with those techniques.  Here are the topics we will cover:
+
+- Data exploration and cleaning.
+- Probability and conditional probability of an event.
+- Logistic regression models.
+- KNN and SVM classification.
+- Area under the curve (AUC).
+- Using logistic regression to calculate change in the probability of an event.
+
+
+```{r setup, include=F}
+knitr::opts_chunk$set(echo = T, include=T, 
+                      warning = F, message =F)
+library(tidyverse)
+library(caret)
+library(arm)
+library(MASS) # This includes versions of the Pima dataset
+
+```
+
+
+Download the "adult" dataset from the folder for Lab 6 in Canvas.  See the data dictionary: https://archive.ics.uci.edu/ml/datasets/adult and  https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.names. Income will be the outcome variable for the analyses using this dataset.
+
+### Data Exploration and cleaning
+
+Let's start by doing some data exploration in order to assess what sort of cleaning needs to take place.
+
+```{r}
+a <- read.csv("adult.csv")[,-1]
+
+glimpse(a)
+
+```
+
+The dataset has 13 variables and 32,561 observations, with many factor variables.  We'll look at a summary of the data to assess whether any cleaning is necessary.
+
+```{r}
+summary(a)
+
+```
+
+The ranges of the numeric variables look reasonable, as do the counts of the categorical variables.  Note that some variables contain missing observations denoted  by a question mark ("?").  We could leave those unchanged for the analysis---the question mark would be treated as just another factor level---or we could impute those missing observations, provided that they do not simply indicate an "other" category, or we could remove them. We should inspect the missing observations  to understand them better, but first need to figure out which variables have missing observations.
+
+```{r}
+
+# Create a new dataset for summarizing the missing variables
+missings <- data.frame(variables = names(a), missings = NA)
+
+# Double-check to make sure this worked
+head(missings)
+
+# Use a loop to fill the missings column with an indicator:
+# 1 if any missings, 0 otherwise
+for(i in 1:nrow(missings)){
+  missings[i, 2] <- ifelse(any(a[,i]=="?"), 1, 0)
+}
+
+# Inspect the summary of missings
+missings
+```
+
+Is there a structure to the missings? Basically, we want to see whether we can discern from the structure of the data how we might impute values for "?." 
+
+1. Occupation
+
+```{r}
+summary(a$occupation) # 1843 ?s
+
+# Select only rows where occupation == "?"
+subset(a, occupation == "?") %>% 
+  head(20)
+
+```
+
+Notice that there is an "other-service" category, but not a general "other" category, so perhaps "?" simply represents "other."  When `occupation` is "?" so is `type_employer`, not surprisingly.
+
+2. Type-employer
+```{r}
+# Summarize
+summary(a$type_employer)
+```
+
+No "other" category here either.
+
+3. Country
+
+```{r}
+# Summarize
+summary(a$country) # 583 ?s
+
+# Select only country == "?"
+subset(a, country == "?") %>% 
+  head(20)
+```
+
+The fact that `country` also has values of "?" suggests that "?" does not represent a general "other" category. Nor is there any discernible logical structure that would allow us to figure out what "?" represents. All three variables with missings are likely to be strong predictors of income---especially the occupation variables---so I think it makes sense to simply remove the rows with question marks, especially given the large number of rows without any missing observations. That way we'll be working with a clean dataset.  In perusing the papers cited in the data dictionary, furthermore, it appears that other researchers have done just that, stripping out the unknowns. 
+
+There are risks to this strategy, of course, because the data are most likely missing at random (MAR).  One way to approach this issue is to conduct a rough sensitivity analysis in which you impute the values with "?," conduct the analysis, and then compare the results with those from the analysis in which the missings have been deleted.  Ideally, they are similar: you don't want want your results to hinge on data modeling decisions.  If they are not similar then you've got a problem.  You'll need to think harder about data modeling.
+
+Do additional data exploration here:
+
+```{r}
+# Your code goes here
+
+```
+
+### Probability
+
+**Question 1**.  Remove all the rows with question marks (you should have 30162 rows in the cleaned dataset) and calculate the probability, rounded to 2 decimals, of earning more than 50k in this dataset. In this case the probability is just the proportion of people earning more than 50k.  
+
+```{r}
+# Your code goes here
+
+# Here is the probabilty before cleaning, which is just the count
+# of incomes over 50k divided by the number of rows
+sum(a$income==">50K")/nrow(a)
+
+# Cleaning.  The following code uses a trick:  turn the ?s into
+# NA then eliminate the NAs.
+
+a[a=="?"] <- NA
+a <- na.omit(a)
+
+# Check to see that the removal worked.  This should produce
+# an empty dataset.
+subset(a, country=="?" | occupation == "?" | type_employer == "?") 
+
+# Probability after cleaning
+sum(a$income==">50K")/nrow(a)
+```
+> Your answer goes here
+
+> .25 is the probability of earning more than 50k (after deleting the missing observations).
+
+After removing the rows with "?" we need to refactor country, occupation and type_employer, otherwise R will retain the now empty category of "?" as the reference category.  
+
+```{r}
+a$country <- factor(a$country)
+a$occupation <- factor(a$occupation)
+a$type_employer <- factor(a$type_employer)
+```
+
+**Question 2**:  Workers with occupation listed as "Exec-managerial" have the highest probability in this dataset of having an income greater than 50k.  What is that probability (rounded to two decimals)? 
+
+```{r }
+# Write your code here
+
+# Two ways to calculate this
+
+#1. using a logistic model
+display(occ <- glm(income ~ occupation , data=a, family=binomial))
+
+invlogit(coef(occ)[1] + coef(occ)[4])
+
+# Using dplyr
+a %>%
+  group_by(occupation) %>%
+  summarize(prob = sum(income==">50K")/length(income)) %>%
+  filter(occupation == "Exec-managerial")
+
+```
+
+>Your answer goes here.
+
+>Exec-managerial has a .49 probability of making more than 50k.  Note that this is a conditional probability, while the first question asks for an unconditional probability.  In the case of conditional probability we want to know the occurrence of the event given a condition.  If we want to know the probability that a dog will live to age 15 then the (theoretical) calculation would be: (number surviving to age 15)/ (number of dogs). If we want to know the conditional probability of surviving to age 15 given that a dog weighs more than 50 pounds, then the calculation would be:  (number of dogs heavier than 50 pounds surviving to age 15)/ (number of dogs heavier than 50 pounds).
+
+**Question 3**:  Which occupation has the *lowest* probability of having an income greater than 50k?
+
+```{r}
+a %>%
+  group_by(occupation) %>%
+  summarize(prob = sum(income==">50K")/length(income)) %>%
+  filter(prob== min(prob))
+```
+
+> Your answer goes here.
+
+> Priv-house-serv has the lowest probability of making greater than 50k.
+
+### Logistic regression
+
+Next we will fit a sequence of models of income using caret and its default bootstrap cross-validation.  Make sure to set the seed as indicated, and to center and scale where appropriate.  These are computationally expensive operations so, to speed model fitting, we will prepare a random subset of the data (2000 rows). Allow caret's default settings to pick optimal values for user-specified parameters.
+
+```{r}
+set.seed(38)
+a_sub <- sample_n(a, 2000)
+summary(a_sub)
+```
+
+**Question 4**: Fit a logistic model of income, using all the predictors.  Report caret's cross-validation estimate of out-of-sample accuracy for this model. In caret, the method argument for logistic regression is "glm." Remember to use the subsetted data in the data argument.
+
+```{r}
+# Your code goes here
+set.seed(38)
+glm_model <- train(income ~., 
+      data = a_sub,
+      method = "glm")
+glm_model
+
+summary(glm_model)
+
+
+```
+
+> Your answer goes here.
+
+> The estimated out-of-sample accuracy was about .84
+
+**Question 5**: Fit a glmnet model of income, using all the predictors.  Glmnet works fine for classification. Report caret's cross-validation estimate of out-of-sample accuracy for this model.
+
+```{r}
+# Your code goes here
+set.seed(38)
+glmnet_model <- train(income ~., 
+      data = a_sub,
+      preProcess = c("center","scale"),
+      method="glmnet")
+glmnet_model
+
+```
+
+
+You can look at the model coefficients with this code (replacing "glmnet_model" with your own model name):
+
+```{r}
+coef(glmnet_model$finalModel, glmnet_model$finalModel$tuneValue$lambda) %>% 
+  round(2)
+```
+
+> Your answer goes here.
+
+> The accuracy is about .85, so not really any improvement.  This is a little surprising since with all of the categorical variables there are actually lots of potential parameters in the model, and thus many opportunities for glmnet, having chosen a model with alpha = 1 (i.e., a lasso model), to remove predictors from the model.  It did, in fact, remove many parameters.  Even if this model is not more accurate than the logistic model, then, it is simpler, which makes it preferable.
+
+### Classification with KNN and SVM
+
+**Question 6**: Fit a KNN model of income, using all the predictors.  Report caret's cross-validation estimate of out-of-sample accuracy for this model.
+
+```{r}
+# Your code goes here
+set.seed(38)
+knn_model <- train(income ~., 
+      data = a_sub,
+      preProcess = c("center","scale"),
+      method="knn")
+knn_model
+```
+
+> Your answer goes here.
+
+> The accuracy was about .79.
+
+**Question 7**: Fit a linear support vector machine (SVM) model of income, using all the predictors.  Report caret's cross-validation estimate of out-of-sample accuracy for this model. Set the method argument to "svmLinear2."  
+
+```{r}
+# Your code goes here
+set.seed(38)
+svm_model <- train(income ~., 
+      data = a_sub,
+      preProcess = c("center","scale"),
+      method="svmLinear2")
+svm_model
+```
+
+
+> Your answer goes here.
+
+> The accuracy was about .85, so very similar to the logistic regressions.
+
+The Lasso model had the best performance, given this seed, just *barely* beating out SVM. Additionally, Lasso has a big advantage in that it is easy to extract probabilities from it, whereas for machine learning models such as SVM (and KNN) probabilities must be reverse engineered (given the way those algorithms work). 
+
+
+### AUC
+
+**Question 8**: Calculate AUC for the glmnet model, using the entire dataset in the arguments to the `roc` function.
+
+```{r}
+library(pROC)
+roc(a$income, 
+    predict(glmnet_model, newdata = a, type = "prob")[,2], 
+    plot=T)
+```
+
+> Your answer goes here.
+
+> AUC for the lasso model is .8995.  The advantage of using AUC as a performance metric for comparing models is that it uses information from the confusion matrix and therefore is not tied to a particular model type, like deviance or AIC, which both use log likelihoods from parametric statistical models. 
+
+### Calculating change in probability 
+
+We can use the lasso model to calculate the probability of having income greater than 50k income. Remember that the inputs to this model are (or should be) centered. So the the intercept, for example, represents the average (or reference case) log odds of greater than 50k earnings: -1.81.
+
+**Question 9**:  Using the glmnet model, calculate the change in probability of earning more than 50k change for someone who is 30 years old vs 50 years old with the following characteristics:
+- type_employer = Private
+- education_num = 12
+- marital = Married-civ-spouse
+- occupation = Prof-specialty
+- relationship = Husband
+- race = White
+- sex = Male
+- capital_gain = 0
+- capital_loss = 0
+- hr_per_week = 40
+- country = United-States
+      
+
+```{r}
+# Your code goes here
+df <- data.frame(age = c(30,50),
+                 type_employer = "Private",
+                 education_num = 12,
+                 marital = "Married-civ-spouse",
+                 occupation = "Prof-specialty",
+                 relationship = "Husband",
+                 race = "White",
+                 sex = "Male",
+                 capital_gain = 0,
+                 capital_loss = 0,
+                 hr_per_week = 40,
+                 country = "United-States")
+
+df
+
+predict(glmnet_model, newdata= df, type = "prob")[2,2] -
+  predict(glmnet_model, newdata= df, type = "prob")[1,2]
+```
+
+> Your answer goes here
+
+> The change in probability is .15.
+
+
+**Question 10 (optional)**: A change of pace.  Download the Pima dataset. 
+
+```{r}
+data("Pima.te")
+data("Pima.tr")
+pima <- rbind(Pima.te, Pima.tr)
+```
+
+Fit a model that predicts type using npreg, ped, glu, bmi,  age and an interaction between npreg  and ped (df = 525).
+
+```{r}
+summary(m <- glm(type ~ npreg *ped+ glu +  
+              bmi  + age , data=pima, family=binomial))
+
+```
+
+
+Suppose that a non-profit health organization wanted to use your model to predict diabetes in this population, but they wanted to do so very conservatively.  That is, they aren't worried about **over**predicting diabetes.  (At the worst, they reason, it would be an inconvenience for patients to come in to get tested.) Instead, they want to avoid **under**predicting diabetes.  Specifically, they would like to push the number of false negatives (instances where the model predicts incorrectly that a person does not have diabetes) down to no more than 2% of the population.  That is, if the population were 1000, they would want there to be no more than 20 false negatives. Which class decision threshold would achieve this objective?  
+
+```{r}
+
+round(nrow(pima)*.02)
+preds <- ifelse(predict(m, newdata=pima, type="response") > .14, 
+                "Yes", "No")
+confusionMatrix(preds, pima$type)$table
+
+preds <- ifelse(predict(m, newdata=pima, type="response") > .15, 
+                "Yes", "No")
+confusionMatrix(preds, pima$type)$table
+
+preds <- ifelse(predict(m, newdata=pima, type="response") > .16, 
+                "Yes", "No")
+confusionMatrix(preds, pima$type)$table
+
+```
+
+> Your answer goes here
+
+>The way to approach this question is to play around with the threshold for converting probabilities into predictions on the scale of the outcome.  We need to have false negatives (in the upper right cell of the above confusion matrix) down around 11, given that 2% of the train set is 10.6.  This is accomplished with a decision or discrimination threshold of .15. In other words, we want to decrease the decision threshold so we overpredict diabetes and have fewer false negatives. 
+
+**Question 11**:  Please score yourself on this lab using the answer key.  For each question, reflect on the difficulty of the question for you and whether you:
+
+- Did not try (just copied the answer key or left it blank).
+- Looked at the answer key to get a hint.
+- Tried but got the wrong answer.
+- Tried and got the right answer.
+
+>Write your answers here.
+
+**Next step.**  After you've finished this lab, go take Quiz 6.  You have one try at the quiz, limited to 30 minutes.  There are five multiple choice and multiple answer questions focusing on the material from this lab.
+
+ 

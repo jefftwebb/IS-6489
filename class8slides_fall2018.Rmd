@@ -1,0 +1,698 @@
+---
+title: "IS 6489: Statistics and Predictive Analytics"
+subtitle: Class 8
+author: Jeff Webb
+output: 
+  beamer_presentation:
+    theme: "Madrid"
+    #colortheme: "dolphin"
+    fonttheme: "structurebold"
+    incremental:  true
+    fig_width: 7
+    fig_height: 6
+    fig_caption:  false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, results='asis', cache=T, warning=F, message = F)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(arm)
+library(car)
+library(ISLR)
+library(tidyverse)
+library(kernlab)
+library(car)
+library(ISLR)
+library(caret)
+library(knitr)
+library(pROC)
+library(plotROC)
+data(Default)
+d <- Default
+
+
+
+
+```
+
+## Agenda
+- Final report expectations
+- Final exam
+- Class 8 topics:
+    + Review logistic regression 
+    + Assessing logistic model performance
+    + Model decision boundaries
+    + Support Vector Machines (SVM)
+- Live coding throughout
+
+# Final Report Expectations
+
+## Final report
+- PDF of the project assignment is available at Canvas
+- Length: 5 pages of text plus additional pages, if necessary, for relevant plots and tables.
+- Expectation: a client-ready report using best practices of technical writing and statistical communication, using graphs when possible, labeling and explaining them, and interpreting statistical results using language and quantities that non-statisticians can understand.
+- Elements: 
+    + Introduce the problem, 
+    + Describe the data and any cleaning you did, 
+    + Explain your model in detail and how you developed it, and how it differs from and improves upon the model you used for the interim report.
+    + Report model RMSE and R2 on the train set, the estimated out-of-sample RMSE and R2, and the score and leaderboard ranking returned by your Kaggle submission.
+- Due date: Sometime in the week following the last class, with a hard deadline one week after the last class.
+
+## Final report:  rubric
+- Review the assessment rubric detail in the assignment description at Canvas.
+- You will be scored on the following elements, with possible scores of 2 - 10.
+    + Introduction
+    + Data modeling and Cleaning
+    + Model and Model development
+    + Model performance (benchmark: log RMSE < .14)
+    + Statistical communication
+    + Overall quality
+    + Leaderboard rating.   Try for the best model performance possible.  You will be scored on your results, competitively, as in the real world.
+
+# Final exam
+
+## Final exam
+- The final exam will be similar to a lab but will be delivered as a Canvas quiz.
+- The majority of the questions will be multiple choice.  Answering them will require extensive data analysis.
+- Some of the questions will involve writing a short interpretive/evaluative paragraph or uploading a plot.
+- There will be a **practice final exam** using Canvas.
+- The answer key for the practice final will be published only after we review the answers during class 9.
+- The exam should take you between 2 and 4 hours, and will be open: use any resource you want, just like in the real world.
+
+# Review Logistic Regression
+
+## Logistic regression: the model
+- The logistic regression model can be written in terms of log odds: $$\text{log} \left(\frac{\text{Pr}(y_i = 1| x_i)}{\text{Pr}(y_i = 0| x_i)}\right) = X_i \beta$$
+- In this formulation the logit function, $\text{logit}(p) = \text{log}\frac{p}{1-p}$, to map the constrained (0,1) scale of the outcome into the unbounded ($-\infty, +\infty$) scale of the linear predictor.
+- The model can also can be written using the inverse logit:  $$\text{Pr}(y_i = 1 | X_i) = \text{logit}^{-1}(X_i \beta)$$ 
+- The inverse logit function, $\text{logit}^{-1}(x) = \frac{e^{x}}{1 + e^{x}}$, maps the unbounded scale of the linear predictor, $X_i \beta$, to the range of the outcome.
+- Log odds do not have a meaningful interpretation (other than sign and magnitude) and must be transformed, either into **probabilities**, using the inverse logit, or into **odds ratios** (OR), by exponentiating.
+
+## Plot of the inverse logit function
+```{r echo=F}
+x <- seq(-6, 6, .01)
+y <- exp(x)/(1 + exp(x))
+plot(x,y, type="l", main=expression(paste("y = ", logit^-1,"(x)")), ylab=expression(paste("y = ", logit^-1,"(x)")))
+```
+
+## Canvas quiz: Question 1
+
+Need access code
+
+Which of the following statements is true of logistic regression? (Mark all that apply.)
+
+- The coefficients produced by logistic regression are totally meaningless.
+- Logistic regression coefficients fortunately represent probabilities.
+- We use the exponential function to transform log odds into probabilities.
+- It is best to leave logistic regression coefficients alone.
+- The coefficients represent the predicted change in the log odds of $y$ associated with a 1 unit increase in $x$, holding all the other predictors constant.
+- The relationship between $\hat y$ and $X\beta$ in logistic regression is non-linear.
+
+
+
+## Canvas quiz: Question 2
+
+Which of the following statements is true of logistic regression? (Mark all that apply.)
+
+- The inverse logit function transforms an unbounded input into a 0-1 range.
+- $\text{Pr}(y) = \text{logit}^{-1}(X\beta) = \frac{e^{X\beta}}{1 + e^X\beta}$
+- In logistic regression the probability of the outcome does not change for different values of the predictors.
+- Because the inverse logistic function is non-linear we must choose a value of the predictor at which to evaluate the probability of the outcome.
+- Probabilities are confusing to interpret.
+- Probabilities are confusing to produce from a logistic regression model but easy to interpret.
+
+## PRACTICE: Working with logistic model coefficients
+- class8script.R
+
+# Assessing logistic model performance
+
+## Comparing models
+- Residual deviance and AIC (only for nested models)
+- Accuracy, sensitivity, specificity and Area under the curve (AUC) 
+- Residual plots
+
+## Residual deviance
+- Deviance = -2(log $\mathcal{L}$), where log $\mathcal{L}$ is the log of the likelihood function.
+- Deviance is a measure of error; lower deviance means a better fit to the data. 
+- We expect deviance to decline by 1 for every predictor. 
+- With an informative predictor  deviance  will decline by more than 1. 
+
+## Residual deviance: example
+```{r}
+glm(default~ balance, data=d, 
+    family="binomial")$deviance
+
+glm(default~ balance + income, 
+    data=d, family="binomial")$deviance
+
+```
+
+
+## Akaike Information Criterion (AIC): example
+```{r}
+AIC(glm(default~ balance, data=d, 
+    family="binomial"))
+
+AIC(glm(default~ balance + income, 
+    data=d, family="binomial"))
+
+```
+
+
+## Comparing models: confusion matrix from caret
+
+```{r include=FALSE}  
+m1 <- glm(default ~ balance, data=d, family=binomial)  
+ preds <- predict(m1, type="response")  
+p <- ifelse(preds >= .5, 1, 0) 
+library(caret)  
+d$default_bin <-ifelse(d$default=="Yes", 1,0)  
+confusionMatrix(p, d$default_bin)
+```
+
+
+![](confusionmatrix.png)
+
+
+
+## Confusion matrix 
+
+\begin{table}
+\begin{tabular}{rrr | r}
+& & Observed \\
+  \hline
+ & No Default & Default & Total \\
+  \hline
+Predicted No Default &   &   &\\
+  Default &   &   & \\
+   \hline
+   Total & 9667 & 333 & 10000 \\
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+\item Observed no default:  9667/10000, 97\%
+\item Observed default:  333/10000, 3\%
+\end{itemize}
+
+
+
+
+
+## Confusion matrix
+\begin{table}
+\begin{tabular}{rrr | r}
+& & Observed \\
+  \hline
+ & No Default & Default & Total \\
+  \hline
+Predicted No Default &   &   & 9858\\
+  Default &   &   & 142\\
+   \hline
+   Total & 9667 & 333 & 10000 \\
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+\item Predicted no default:  9858/10000, 99\%
+\item Predicted default:  142/10000, 1\%
+\end{itemize}
+
+
+
+
+## Confusion matrix
+\begin{table}
+\begin{tabular}{rrr | r}
+& & Observed \\
+  \hline
+ & No Default & Default & Total \\
+  \hline
+Predicted No Default & TN  &   & 9858\\
+  Default &   & TP  & 142\\
+   \hline
+   Total & 9667 & 333 & 10000 \\
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+\item TP = True Positive.  Model and truth agree:  default
+\item TN = True Negative.  Model and truth agree:  no default
+\end{itemize}
+
+
+
+
+## Confusion matrix
+\begin{table}
+\begin{tabular}{rrr | r}
+& & Observed \\
+  \hline
+ & No Default & Default & Total \\
+  \hline
+Predicted No Default & TN  & FN  & 9858\\
+  Default & FP  & TP  & 142\\
+   \hline
+   Total & 9667 & 333 & 10000 \\
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+\item FP = False Positive.  Model gets it wrong:  borrower did not default
+\item FN = False Negative.  Model gets it wrong:  borrower defaulted
+\end{itemize}
+
+
+
+
+## Confusion matrix
+\begin{table}
+\begin{tabular}{rrr | r}
+& & Observed \\
+  \hline
+ & No Default & Default & Total \\
+  \hline
+Predicted No Default & 9625  & 233  & 9858\\
+  Default & 42  & 100  & 142\\
+   \hline
+   Total & 9667 & 333 & 10000 \\
+\end{tabular}
+\end{table}
+
+\begin{itemize}
+\item Accuracy = 1 - (False Positive + False Negative) / Total
+\item Accuracy = 1 - (42 + 233) / 10000 = .97
+\end{itemize}
+
+
+
+## Confusion matrix
+\begin{table}
+\begin{tabular}{rrr | r}
+& & Observed \\
+  \hline
+ & No Default & Default & Total \\
+  \hline
+Predicted No Default & 9625  & 233  & 9858\\
+  Default & 42  & 100  & 100\\
+   \hline
+   Total & 9667 & 333 & 10000 \\
+\end{tabular}
+\end{table}
+\begin{itemize}
+\item False positive rate = 42 / (42  + 9625) = .004.  These are misclassified non-defaults.
+\item False negative rate = 233 / (233 + 100) = .7.   Misclassified defaults.
+\end{itemize}
+
+## Logistic regression as probability model
+
+- Remember that logistic regression is a **probability** model, in the sense that the output is a probability, bounded by 0 and 1, and not a class label.
+- We must convert probabilities into classes by choosing a **class decision threshold**.
+- The default threshold is .5, which will usually optimize accuracy (but not always, for example, if the cells in the confusion matrix are unbalanced).
+- For the default threshold: If the probability is $\geq$ .5 we classify the observation as an "event", and if the probability is < .5 we classify it as "no event."
+- But we could choose other thresholds depending on the context of analysis.
+- If we do so, our overall accuracy will usually be lower, but that may be an acceptable trade-off if we want to avoid certain kinds of errors (false positives or false negatives).
+
+## Canvas quiz: Question 3
+
+Which of the following are true statements?
+
+- We can compute **accuracy** for any kind of a classification model.
+- We can compute **deviance** for any kind of a classification model.
+- A confusion matrix for a binary outcome has 4 cells representing 4 possible types of classification errors: false positives, true positives, false negatives, true negatives.
+- A false positive is when you predict the event but it doesn't happen.
+- A true positive is when you predict the event but it doesn't happen.
+- If we adjust the class decision threshold up, from .5 to .9, then we are less likely to predict the event, and therefore less likely to *over*predict the event.  Our false positive rate should go down.
+
+## ROC curve
+```{r echo=F}
+data(aSAH)
+aSAH$outcome <- ifelse(aSAH$outcome=="Good", "Event" , "No Event")
+
+invisible(plot(roc(aSAH$outcome, aSAH$s100b, levels = c("Event", "No Event")), print.thres = c(.5, .1), col = "red", print.auc = T))
+
+```
+
+## ROC curves for evaluating model performance
+- A ROC curve is a useful way of summarizing the performance of a classifier by showing what sorts of errors a model makes at every decision threshold.
+- Essentially it shows the accuracy with which a model predicts the positive class (true positives) against its corresponding mistakes in that class (false positives), at each decision threshold.
+- The x-axis in a ROC curve is the false positive rate (1 minus the true negative rate or specificity).
+- The y-axis is the the true positive rate  (sensitivity).
+- The curve itself represents the sensitivity/specificity pairs associated with every decision threshold (0 - 1).
+- The better a model is, the larger the area under the curve or AUC.
+- AUC is a general assessment of model performance, allowing us to compare the results of any two classifiers.
+
+
+## Assessing model fit: residual plot
+Traditional residual plot: not very helpful.
+```{r echo=F}
+d <- read.csv("https://stats.idre.ucla.edu/stat/data/binary.csv")
+
+m1 <- glm(admit ~ ., data=d, family=binomial)
+ plot(m1, which=1)
+
+```
+
+
+## Assessing model fit: binned residual plot
+Binned residual plot: better.
+```{r echo = F}
+binnedplot(fitted(m1) ,residuals(m1), nclass=NULL,
+    xlab="Expected Values", ylab="Average residual",
+    main="Binned residual plot",
+    cex.pts=0.8, col.pts=1, col.int="gray")
+```
+
+## PRACTICE: comparing classification models and assessing model fit
+
+- class8script.R
+
+## Logistic regression decision boundary
+- Imagine that we've fit a logistic regression with two predictors, as expressed by this equation: $$\text{Pr}(y =1) = \text{logit}^{-1}(\beta_0 + \beta_1x_1 + \beta_2x_2)$$
+- The relationship between these predictors can be represented using a bivariate scatter plot, with each observation defined by its x1 and x2 coordinates.
+- The observations can be colored according the model's predicted class labels, using .5 as the class decision threshold:
+    + if $\text{logit}^{-1}(X_i \beta)$ is $\geq$ .5 then the class label for y is 1.
+    + if $\text{logit}^{-1}(X_i \beta)$ is < .5 then then the class label for y is 0.
+- Essentially this will be a three dimensional plot with the third dimension---the model's prediction of class membership---represented by each point's color.
+
+
+## Logistic regression decision boundary
+```{r echo=F}
+set.seed(124)
+data <- data.frame(
+  x1 = jitter(c(1,2,3,.5,1.5,2.5,4,5,6,3.5,4.5,5.5), factor=5), x2 = jitter(c(4,5,6,4,5,6, 1,2,3,1,2,3), factor=10),
+  predicted.class= factor(c(rep("event",6), rep("no event",6))))
+
+mod <- glm(predicted.class ~ x1 + x2, data= data, family = binomial)
+
+data$line <- (coef(mod)[1]+ data$x1*coef(mod)[2])/-(coef(mod)[3])
+
+ggplot(data,aes(x1,x2, col=predicted.class)) +
+  geom_point(size=3) +
+  theme_minimal() +
+  geom_line(aes(x1, line), alpha=0) +
+  ylim(c(0,7.5))  +
+    xlim(c(0,7.5)) 
+
+```
+
+## Logistic regression decision boundary
+
+- We can be more specific about the separation between the classes by using the logistic regression equation to express the decision boundary as a line.
+- The line defined by $\beta_0 + \beta_1X_2 + \beta_2X_2 = 0$ for (untransformed) logistic model coefficients $\beta_0, \beta_1, \beta_2$ creates a **decision boundary** in two-dimensional space, such that:
+    + points for which $\beta_0 + \beta_1X_2 + \beta_2X_2 > 0$ are predicted to be in the positive class.
+    + points for which $\beta_0 + \beta_1X_2 + \beta_2X_2 < 0$ are predicted to be in the negative class.
+- In short, the decision boundary is the line that separates the area in the bivariate plot into two regions:  where y = "no event" and where y = "event" (assuming a class decision threshold of .5).
+- If the points are perfectly separable by the decision boundary then the data are known as "linearly separable."
+- Logistic regression can easily fit non-linear decision surfaces, of course, by including quadratic terms and interactions as predictors.
+
+
+## Logistic regression decision boundary
+```{r echo=F}
+ggplot(data, aes(x1,x2, col=predicted.class)) +
+  geom_point(size=3) +
+    theme_minimal() +
+    geom_line(aes(x1, line), col=1) +
+  annotate("text", x = 4.5, y = 7.5, label="beta[0] + beta[1]*x[1] + beta[2]*x[2] > 0", parse=TRUE) +
+   annotate("text", x = 2, y = 0, label="beta[0] + beta[1]*x[1] + beta[2]*x[2] < 0", parse=TRUE) +
+  ylim(c(0,7.5)) +
+    xlim(c(0,7.5)) 
+
+```
+
+## Worked example of logistic regression decision boundary
+
+- The logistic regression function for the preceding plot is: $y = 6.16 - 13.65*x_1 +10.36*x_2$.
+- What would the predicted class be for an observation defined by $x_1 = 2$ and $x_2 = 4$?
+- $6.16 - 13.65*2 +10.36*4$ = 20.3: positive so classify as "event."
+- What would the predicted class be for an observation defined by $x_1 = 6$ and $x_2 = 2$?
+- $6.16 - 13.65*6 +10.36*2$ = -55.02: negative so classify as "no event."
+
+
+
+## The decision boundary as hyperplane
+- We can generalize the logistic regression decision boundary as a **hyperplane** with dimension $p$ - 1 in $p$-dimensional space (where $p$ stands for "predictor").
+- In two dimensions, with $p$ = 2 predictors, the hyperplane is  a *line* (as represented in the previous plot).
+- In $p$ = 3 dimensions, the hyperplane is a *plane*.
+- It can be hard to visualize a hyperplane in $p$ > 3 dimensions, but the notion of a ($p$-1)-dimensional flat subspace still applies.
+
+## EXPLORE: decision boundaries
+
+- class8script.R
+
+
+## Logistic regression vs. SVM
+- In logistic regression the hyperplane decision boundary is an important consequence of the model---the model equation defines the hyperplane and the fitted outcome values---but is not itself used to create the model.
+- By contrast, the notion of a **separating** hyperplane is central to SVM: the algorithm searches directly for the hyperplane that best separates the classes.
+- What do we mean by "best"?
+- In logistic regression *all data points* contribute to the optimal fitted parameters and the resulting decision boundary.
+- In SVM only those points closest to the separating hyperplane contribute to its location.
+- It is easiest to introduce this idea visually.
+
+
+## Which separating hyperplane is best?
+```{r echo=F}
+set.seed(11)
+data <- data.frame(
+  x1 = jitter(c(1,2,3,.5,1.5,2.5,4,5,6,3.5,4.5,5.5), factor=5), x2 = jitter(c(4,5,6,4,5,6, 1,2,3,1,2,3), factor=10),
+  class= factor(c(rep("event",6), rep("no event",6))))
+
+mod <- glm(class ~ x1 + x2, data= data, family = binomial)
+
+data$line <- (coef(mod)[1]+ data$x1*coef(mod)[2])/-(coef(mod)[3])
+
+ggplot(data, aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+    theme_minimal() +
+    geom_abline(intercept =-5.5, slope =3)+
+  ylim(c(0,7.5)) +
+    xlim(c(0,7.5)) 
+
+
+```
+
+## Which separating hyperplane is best?
+```{r echo=F}
+ggplot(data, aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+    theme_minimal() +
+  geom_abline(intercept =-5.5, slope =3)+
+    geom_abline(intercept =0, slope =1.2)+
+  ylim(c(0,7.5)) +
+    xlim(c(0,7.5)) 
+
+```
+
+## Which separating hyperplane is best?
+```{r echo=F}
+ggplot(data, aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+    theme_minimal() +
+   geom_abline(intercept =-5.5, slope =3)+
+    geom_abline(intercept =0, slope =1.2)+
+  geom_abline(intercept =2, slope =.5) +
+  ylim(c(0,7.5)) +
+    xlim(c(0,7.5)) 
+
+```
+
+## Which separating hyperplane is best?
+- For linearly separable data (as in the previous plots) the objective in SVM is to define a separating hyperplane according to a **large margin criterion**.
+- By "large margin" we mean the single hyperplane out of many candidates with an identical margin on each side, measured by the maximum  perpendicular distance from the closest points in the two classes.
+- This optimal hyperplane is called the **maximal margin hyperplane**.
+- The closest points to the maximal margin hyperplane define its **support vectors**.
+
+## Maximal margin hyperplane
+```{r echo=F}
+ggplot(data, aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+    theme_minimal() +
+  geom_line(aes(x1, line), col=1) +
+  ylim(c(0,7.5)) +
+    xlim(c(0,8.5)) 
+
+```
+
+## Maximal margin hyperplane with support vectors
+```{r echo=F}
+ggplot(data, aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+    theme_minimal() +
+  geom_line(aes(x1, line), col=1) +
+  geom_line(aes(x1, line+1.8), col=1, lty=2)+
+  geom_line(aes(x1, line-1.8), col=1, lty=2) +
+  ylim(c(0,7.5)) +
+  xlim(c(0,8.5)) +
+  annotate("text", x = 4, y = 3, label="Margin", size= 3)+
+  annotate("text", x = 4, y = 4.8, label="Margin", size = 3) +
+  annotate("text", x = 7.5, y = 5, label="Separating \n Hyperplane", size = 3) +
+  annotate("text", x = 7.7, y = 3, label="Support Vector", size = 3)+
+  annotate("text", x = 7.7, y = 6.5, label="Support Vector", size = 3)
+
+```
+
+## Why is a larger margin better?
+
+```{r echo=F}
+library(gridExtra)
+
+plot1 <- ggplot(data, aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+    theme_minimal() +
+  geom_line(aes(x1, line), col=1) +
+  geom_line(aes(x1, line+1.8), col=1, lty=2)+
+  geom_line(aes(x1, line-1.8), col=1, lty=2) +
+  ylim(c(0,7.5)) +
+  xlim(c(0,8.5))+
+  labs(title= "Large margin")+
+guides(col=FALSE)
+
+plot2 <- ggplot(data, aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+    theme_minimal() +
+  geom_abline(intercept =-4, slope =2.5)+
+  ylim(c(0,7.5)) +
+    xlim(c(0,8.5)) +
+  geom_abline(intercept =-6, slope =2.5, col=1, lty=2) +
+  geom_abline(intercept =-2, slope =2.5, col=1, lty=2)+
+  labs(title= "Small margin")+
+guides(col=FALSE)
+
+grid.arrange(plot1, plot2, ncol=2)
+
+```
+
+The larger the margin the more robust the model will be to over-fitting, and the better it will perform with new data.
+
+## Canvas quiz:  question 4
+
+Select all the true statements.
+
+- A decision boundary can be calculated for any classification model.
+- The line separating predicted class labels of points in a bivariate plot of two predictors is a decision boundary.
+- In SVM the support vectors define the maximal margin hyperplane.
+- Small margins are better than large margins in defining a separating hyperplane.
+- In SVM, the support vectors are equidistant from the separating hyperplane.
+- Large margins around the separating hyperplane produce a SVM model that is resistant to overfitting.
+
+
+## Types of SVM
+
+- *Introduction to Statistical Learning* identifies three SVM-related algorithms that we will treat as instances of SVM as follows:
+    1. Linear SVM with linearly separable classes.
+    2. Linear SVM with linearly non-separable (overlapping) classes.
+    3. Radial and Polynomial SVM for non-linear decision surfaces.
+    
+- Note: The math behind SVM is relatively advanced and beyond the scope of this class.
+    
+## SVM: separable and non-separable cases
+
+- When the train data are linearly separable the goal in SVM is to find the  separating hyperplane that allows for maximum margin M---maximum distance between the hyperplane and the closest point.  
+- The larger the margin the more likely the model will have low variance and perform well with new data.
+- Usually, however, the data will not be linearly separable and there will be no maximal margin hyperplane.  
+- In that case, we cannot exactly separate the two classes. 
+- However, we can extend the concept of a separating hyperplane in order to find a hyperplane that *almost* separates the classes, using what is known as a *soft margin*. 
+
+## SVM: non-separable (overlapping) case
+
+```{r echo=F}
+set.seed(12)
+data <- data.frame(
+  x2 = jitter(c(1,2,3,.5,1.5,2.5,1,3,4,3.5,4.5,5.5), factor=5), x1 = jitter(c(1,3,4,1,3,4, 1,2,3,1,2,3), factor=10),
+  class= factor(c(rep("event",6), rep("no event",6))))
+
+mod <- glm(class ~ x1 + x2, data= data, family = binomial)
+
+data$line <- (coef(mod)[1]+ data$x1*coef(mod)[2])/-(coef(mod)[3])
+
+ggplot(data,aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+  theme_minimal() +
+  geom_line(aes(x1, line), col=1) +
+   geom_line(aes(x1, line+.5), col=1, lty=2)+
+  geom_line(aes(x1, line-.5), col=1, lty=2)
+
+```
+
+## SVM: non-separable (overlapping) case
+- To find a soft margin for SVM we must choose a tuning parameter, $C$, that increases with violations of the margin and the hyperplane.
+- There are two kinds of violations represented by what are known as "slack variables", $\epsilon_i$, which represent the *distance* from the margin according to the following rules:
+    1. $\epsilon_i$ = 0 if the observation is on the right side of the hyperplane and the margin.
+    2. $\epsilon_i$ > 0 if the observation is on the right side of the hyperplane but in the margin.
+    3. $\epsilon_i$ > 1 if the observation is on the wrong side of the hyperplane.
+- $C$ = $\sum_{n = 1}^{i} \epsilon_i$. 
+- $C$ is essentially a *budget* for the amount that the margin can be violated by the $n$ observations.
+- Increasing the budget for C allows more violations, leading to wider margins and a high bias, low variance classifier.
+- Decreasing the budget allows fewer violations, leading to narrower margins and a low bias, high variance classifier.
+
+## Tuning parameter C and SVM margin width
+
+```{r echo=F}
+
+plot1 <- ggplot(data,aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+  theme_minimal() +
+  geom_line(aes(x1, line), col=1) +
+   geom_line(aes(x1, line+.5), col=1, lty=2)+
+  geom_line(aes(x1, line-.5), col=1, lty=2) +
+  labs(title = "Small C",
+        subtitle =  "lower bias, higher variance") +
+  ylim(c(0, 7))+
+  guides(col=FALSE)
+
+plot2 <- ggplot(data,aes(x1,x2, col=class)) +
+  geom_point(size=3) +
+  theme_minimal() +
+  geom_line(aes(x1, line), col=1) +
+   geom_line(aes(x1, line+1.5), col=1, lty=2)+
+  geom_line(aes(x1, line-1.5), col=1, lty=2) +
+  labs(title = "Large C",
+       subtitle= "higher bias, lower variance")+
+guides(col=FALSE)+
+  ylim(c(0, 7))
+
+grid.arrange(plot1, plot2, ncol=2)
+```
+
+
+## Non-linear decision boundary
+
+![](nonlinear.png)
+
+
+## Radial and Polynomial SVM
+
+- Linear SVM can fit a non-linear decision boundary (just as with logistic regression) by enlarging the feature space with interaction and polynomial terms.
+- A more computationally efficient way of enlarging the feature space, however, is with *kernels.*
+- We won't go into these methods much here except to say that the "kernel trick" involves adding a dimension to linearly inseparable data to make it linearly separable with a hyperplane.
+- There are some novel visualizations of the kernel trick online (https://www.youtube.com/watch?v=3liCbRZPrZA&list=PLD6F90D381F0D4B79).
+- If you encounter a non-linear decision boundary it can be worth trying a radial or polynomial SVM.
+
+## Example of non-linear radial and polynomial SVM decision boundaries
+
+![](radialpolySVM.png)
+
+<!-- ## Algorithmic details -->
+
+<!-- - The math behind SVM is relatively advanced and beyond the scope of this class. -->
+<!-- - However, *Introduction to Statistical Learning* does a nice job of describing the SVM algorithm (separable and non-separable cases) without explicitly using linear algebra. -->
+
+
+<!-- ## Algorithmic details: linearly separable case -->
+<!-- - Based on a set of $n$ training observations $x_1,... ,x_n \in \mathbb{R}^p$ and associated class labels $y_1,...,y_n \in$ {−1, 1} then the goal is to find the hyperplane with the largest possible margin given these constraints:  -->
+<!--     1. $\max\limits_{\beta_0, \beta_1,...,\beta_p}$ M. -->
+<!--     2. subject to $\sum_{j=1}^{p} \beta_j^2 = 1$ -->
+<!--     3.  $y_i(\beta_0 +\beta_1 x_i1 +\beta_1 x_i2 + ... +\beta_p x_ip) \geq M$ $\forall$ $i =1,...,n.$ -->
+<!-- - The second constraint ensures that the perpendicular distance from each observation to the hyperplane is given by $y_i(\beta_0 +\beta_1 x_i1 +\beta_1 x_i2 + ... +\beta_p x_ip)$.  -->
+<!-- - Together these the constraints ensure that each observation is on the correct side of the hyperplane and at least a distance M from the hyperplane.  -->
+<!-- - M thus represents the optimal margin of the hyperplane, and the optimization problem chooses $\beta_0, \beta_1 ,\beta_p$ to maximize M.  -->
+<!-- - See page 343 in *Statistical Learning* for further details. -->
+
+## Homework
+
+- Lab 6
+- Practice final exam!
+
+

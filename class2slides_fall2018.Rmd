@@ -1,0 +1,644 @@
+---
+title: "IS 6489: Statistics and Predictive Analytics"
+subtitle: Class 2
+author: Jeff Webb
+output: 
+  beamer_presentation:
+    incremental:  true
+    # fig_width: 8
+    # fig_height: 7
+    fig_caption: false
+    includes:
+      in_header: latex_preamble.tex
+    
+---
+
+
+
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F, message = F, cache = T)
+library(tidyverse)
+library(knitr)
+```
+
+## Outline of class tonight
+
+- Questions about the class?
+- Datacamp
+- Review
+- Tidy data
+- Summary statistics
+- Motivation for doing exploratory data analysis (EDA)
+- Tools for manipulating and visualizing data: dplyr and ggplot2
+- Coding:  
+    + basic intro to dplyr and ggplot2
+    + cleaning and exploring a dataset
+
+
+## Data science process
+
+\begincols
+  \begincol{.4\textwidth}
+
+ ![](datascience_process.png)
+
+  \endcol
+\begincol{.5\textwidth}
+
+- Ask an interesting question
+- Get the data
+- Explore data
+- Model data
+- Communicate insights
+- **Today we will focus on data collection and exploration (including data cleaning and organization) .** 
+
+\endcol
+\endcols
+
+# Data type review
+
+## Data type review
+
+- Numeric: 1.2, 5, 6.7, .89 ...
+- Integer: 101, 253, 17, 35 ...
+- Logical:  T, F, FALSE, TRUE, T, F, F
+- Character:  "dog", "56", "Cochise Stronghold", "FALSE", "9/11"
+- Factor: ordered character variable, with order  encoded in "levels."
+- Date: also ordered character variables, with  order imposed by the calendar.
+
+# Data structure review
+
+## Data structures
+
+- Two main data structures we'll use for doing analytics:
+- **Vector**: a one-dimensional data structure consisting of a collection of single-type values.
+- **Data frame**: a two-dimensional data structure with rows and columns.
+- Tabluar data is "square":  each observation has the same number of variables; each variable has the same number of values.
+- Much of the data automatically collected these days is unstructured (email, photos) or semi-structured (xml, json).
+- **We need tabular data to do statistics! This makes R happy.**    
+
+
+# Tidy data 
+
+## Messy data
+
+- Datasets are often messy.
+- Before we can do statistical analysis we need to make sure that our dataset is **clean** and **tidy.**
+- Preparing the data often requires 95% of the effort in an analysis.
+
+## What do we mean by "clean"
+- Values must be encoded appropriately:
+    + integer or factor? factor or character?
+- Encoding must be consistent and accurate:
+    + Missing values:  "" or NA or . or NULL or 0?
+    + Problems with numeric variables:  -Inf, Inf, NaN.
+    + Numbers stored as characters:  "5" rather than 5.
+    + Dates stored as character variables.
+    + Misspellings in character variables.
+- Values must be within the range of the possible and probable. 
+- And the list goes on....
+- From *Anna Karenina*:  "All happy families are alike; each unhappy family is unhappy in its own way."
+- Transposing Tolstoy we can say:  cleaning data can be challenging because each filthy dataset is filthy in its own way.
+
+
+## What do we mean by "tidy"? 
+
+```{r echo=F}
+library(knitr)
+library(tidyverse)
+head(mtcars[, 1:8]) %>% kable
+```
+
+- A dataset is a collection of **values**.
+- In a **tidy** datasaet, each value belongs to an **observation** (rows) and a **variable** (columns). 
+- Rows are **observations** containing values measured on the same observational unit across all variables.
+- Columns are **variables** containing values measured on a single attribute across all observations.
+- One type of observational unit per table.
+
+
+## Untidy data
+
+Column headers are values rather than variable names.
+
+
+```{r echo=F}
+library(tidyr)
+narrow_cars <- unique(mtcars[1:4])
+new <- spread(sample_n(narrow_cars,6), cyl, cyl)
+new %>% kable
+```
+
+This dataset also needs cleaning.  How so?
+
+## Untidy data
+
+Variables are stored in rows.
+
+```{r echo=F}
+df <- data.frame(Pregnant=c(0,1), Not_pregnant = c(5,4))
+row.names(df) <- c("Male", "Female")
+df %>% kable
+```
+
+There are three variables in this dataset.  What are they?
+
+
+## Tidy data
+
+
+```{r echo=F}
+
+df <- data.frame(Pregnant=c("No","No", "Yes","Yes"),
+                 Sex = c("Female","Male", "Female","Male"), 
+                 n = c(4,5,1,0))
+df %>% kable
+
+```
+
+What is the observational unit in this table? What would we title the table?
+
+
+## Untidy data
+
+Rows are not observational units.
+
+```{r echo=F}
+df <- data.frame(Delivery = c("On Sunday","10:30","12:30", "12:35",
+                              "On Monday","11:30","11:57", "11:59",
+                              "On Tuesday","11:33","11:15", "12:59"
+                              ),
+                 Amount = c("", 43,12,30,"",29,87,63,"",19,27,54))
+df %>% kable
+
+```
+ 
+- How do we fix this dataset? 
+
+## Tidy data
+
+
+```{r echo=F}
+df <- data.frame(Day = c("Sunday","Sunday","Sunday",
+                          "Monday","Monday","Monday",
+                          "Tuesday","Tuesday","Tuesday"),
+                 Time = c("10:30","12:30", "12:35",
+                            "11:30","11:57", "11:59",
+                             "11:33","11:15", "12:59"),
+                 Amount = c(43,12,30,29,87,63,19,27,54))
+df %>% kable
+
+```
+
+## Canvas quiz
+
+- Which is NOT a principle of tidy data?
+    + Each observation forms a row, each variable forms a column, and each type of observational unit forms a table.
+    + A variable contains all values measured on the same observational unit across all attributes.
+    + Each value belongs to a variable and an observation.
+    + A dataset is a collection of variables.
+
+## Canvas quiz
+
+- Which of the following is NOT a symptom of messy data?
+    + Variables are stored in both rows and columns.
+    + Column headers are values not variable names.
+    + Single observational units are stored in multiple tables.
+    + Multiple values are stored in one column.
+
+    
+# Review: Summary Statistics
+
+## Population vs. sample
+- A population is the entire set of objects or events under study, and can be hypothetical ("all students") or actual (all students in this class).
+- A sample is a (hopefully) representative subset of the objects or events under study. 
+- We often need to use samples because it usually impossible or intractable to obtain or compute with population data.
+- We use measurements from the sample, such as the mean and standard deviation, to estimate properties of the population.
+
+
+## Sample mean
+
+- The mean of a sample of $n$ observations of a variable is denoted $\bar{x}$ and is defined as: $$\frac{x_1 + x_2 + ... + x_n}{n} = \frac{1}{n} \sum_{i = 1}^{n}x_i$$.  
+- Note:  in this formula the subscripts on x ($x_1 + x_2 + ... + x_n$) indicate the vector position, or the index, of the observations.  We represent the individual x's with $x_i$. 
+- The mean is one way to represent a typical sample value, or  the center of the distribution.
+
+ 
+
+## Sample mean
+The typicality of the mean depends on the distribution!
+
+```{r echo=F}
+
+
+df <- data.frame(distribution = c(rep("normal", 10000), rep("right-skewed",10000)),
+                 values = c(rnorm(10000),rexp(10000, rate =.3)))
+
+df <- df %>%
+  group_by(distribution) %>%
+  mutate(mean = mean(values))
+
+
+ggplot(df, aes(values)) +
+  geom_density() +
+  geom_vline(aes(xintercept = mean), col=2, type = 2) +
+  facet_wrap(~distribution) +
+  theme_minimal()
+
+```
+
+## Sample median
+
+- The median of a set of $n$ observations of a sample variable, ordered by value, is defined by: $$\text{Median} = \begin{cases}
+x_{(n+1)/2} &:\ \text{if x is odd}\\
+\frac{x_{n/2}+x_{(n/2) + 1}}{2} &:\ \text{if x is even}.
+\end{cases}$$
+- Example (already in order):
+    + Ages: 17, 19, 21, 22, 23, 23, 23, 38 
+    + n = 8
+    + Median: $\frac{x_{(8/2 = 4)} + x_{(8/2 + 1 = 5)}}{2}$ = (22 + 23)/2 = 22.5
+- The median is the middle of the sample distribution, and as such is another way of describing the typical observation.
+
+## Mean vs. Median
+
+The mean is more sensitive than the median to extreme values (outliers)
+
+```{r echo =F}
+df <- data.frame(group = c(rep("no_outlier", 100), rep("outlier",100)),
+                 values = c(rnorm(100),c(rnorm(90),rnorm(10, 50,20))))
+
+df <- df %>%
+  group_by(group) %>%
+  mutate(mean = mean(values),
+         median = median(values))
+
+
+
+ggplot(df, aes(values)) +
+  geom_density() +
+  geom_vline(aes(xintercept = mean), col=2, lty = 1) +
+  geom_vline(aes(xintercept = median), col=3, lty = 2) +
+  facet_wrap(~group) +
+  theme_minimal() 
+
+```
+
+- If the mean is greater than the median (as in the right panel) then the distribution is called *right-skewed*.
+
+## Categorical variables
+
+ 
+```{r echo = F}
+
+df <- data.frame(pets = c(rep("cat", 5), rep("hamster", 12), rep("dog", 10), rep("giraffe",1)))
+
+ggplot(df, aes(pets))+
+  geom_bar() + theme_minimal()
+
+```
+
+For categorical variables, neither mean or median make sense. Why? 
+
+## Measures of spread:  sample range
+
+- The spread of a sample of observations indicates how well the mean or median describes the sample.
+- One way to measure spread of a sample of observations is with the range.
+- Range = Maximum Value - Minimum Value
+
+## Measures of spread: sample variance
+
+- The sample variance, denoted $s^2$, measures how much on average the sample values deviate from the mean: $$s^2 = \frac{1}{n-1} \sum_{i=1}^n (x_i - \bar{x})^2$$
+
+- The term $(x_i - \bar{x})^2$ measures the amount by which each $x_i$ deviates from $\bar{x}$. 
+- Squaring these deviations means that $s^2$ is sensitive to extreme values (outliers).
+- Note: $s^2$ doesn't have the same units as the observations, $x_i$.
+
+## Measures of spread: sample standard deviation
+
+- The sample standard deviation, denoted $s$, is the square root of the variance:
+$$s = \sqrt{s^2} = \sqrt{\frac{1}{n-1} \sum_{i=1}^n (x_i - \bar{x})^2}$$
+
+- Note: $s$ does have the same units as the $x_i$.
+
+## Covariance and correlation
+
+- Covariance and correlation measure of how much two variables change together.
+- $cov(x,y) = \frac{1}{n} \sum_{i=1}^n (x_i - \bar{x})(y_i - \bar{y})$
+- $corr(x,y) = \frac{cov(X,Y)}{s_x s_y}$
+- Correlation can be considered normalized covariance.  It ranges between -1 and 1, with 0 indicating no relationship. 
+
+## Correlation
+
+```{r echo = F}
+set.seed(113)
+df <- data.frame(x =seq(.5,10, by = .5))
+df$y1 <-  -(df$x + rnorm(20))
+df$y2 <- runif(20, 1, 10)
+df$y3 <- df$x + rnorm(20)
+
+# cor(df$x, df$y1)
+# cor(df$x, df$y2)
+# cor(df$x, df$y3)
+
+
+library(grid)
+library(gridExtra)
+
+p1 <- ggplot(df, aes(x, y1)) +
+  geom_point() +
+  labs(title = "Correlation = - .96") +
+  theme_minimal() +
+  stat_smooth(method = "lm", se = F)
+
+p2 <- ggplot(df, aes(x, y2)) +
+  geom_point() +
+  labs(title = "Correlation = -.12") +
+  theme_minimal()+
+  stat_smooth(method = "lm", se = F)
+
+p3 <- ggplot(df, aes(x, y3)) +
+  geom_point() +
+  labs(title = "Correlation = .95") +
+  theme_minimal()+
+  stat_smooth(method = "lm", se = F)
+
+grid.arrange(p1, p2, p3, ncol = 3)
+```
+
+## Canvas quiz
+
+- To summarize a right-skewed distribution, you could use which two measures:
+    + standard deviation 
+    + range
+    + median
+    + mode
+    + quartiles
+    + covariance
+    + mean
+
+
+## Canvas quiz
+
+- Complete the statement with all the possibilities that apply:  "Standard deviation ..."
+    + is a measure of central tendency. 
+    + shows the distance between the maximum observation and the minimum.
+    + represents the skew of a distribution.
+    + represents a variable's dispersion.
+    + is the square root of the variance.
+    + is not interpretable on the scale of the x's.
+
+
+# Why EDA?
+
+## Anscombe's quartet
+
+```{r echo = F}
+data("anscombe")
+a <- anscombe
+
+a <- a %>%
+  select(x1,y1,x2,y2,x3,y3,x4,y4)
+
+a_sum <- t(data.frame(sum = colSums(a), 
+                      mean = round(colMeans(a),2), 
+                      s = round(apply(a, 2, sd),2)))
+a_names <- c(rep("", 11), "sum", "mean","s")
+
+new_a <- cbind(a_names, rbind(a, a_sum))
+
+names(new_a)[1] <- ""
+
+new_a %>% kable(digits = 1, row.names = F)
+
+
+
+```
+
+Identical datasets right?
+
+## Anscombe's quartet
+
+Regress outcome variable (y1 - y4) on the corresponding predictor variables (x1 - x4).
+What are the intercept and slope coefficients for each regression?
+
+
+```{r, echo = F}
+lm(anscombe$y1 ~ anscombe$x1)$coef
+lm(anscombe$y2 ~ anscombe$x2)$coef
+lm(anscombe$y3 ~ anscombe$x3)$coef
+lm(anscombe$y4 ~ anscombe$x4)$coef
+```
+Identical datasets right?
+
+## Anscombe's quartet
+
+```{r echo=F}
+a_x <- a %>% gather(dataset, value) %>%
+  mutate(x = substr(dataset,1,1),
+         dataset = paste("Dataset",substr(dataset, 2,2))) %>%
+  filter(x=="x") %>%
+  mutate(obs = seq(1, length(x))) %>%
+  select(dataset, x = value, obs)
+
+a_y <- a %>% gather(dataset, value) %>%
+  mutate(y = substr(dataset,1,1),
+         dataset = paste("Dataset",substr(dataset, 2,2))) %>%
+  filter(y=="y") %>%
+  mutate(obs = seq(1, length(y))) %>%
+  select(dataset, y = value, obs)
+
+
+
+cbind(a_x, a_y[,2:3]) %>%
+  ggplot(aes(x,y, group=dataset)) +
+  geom_point()+
+stat_smooth(method="lm", se=F, col=2) +
+  facet_wrap(~dataset) +
+  theme_minimal()
+
+```
+
+## Simpson's paradox
+
+```{r include=F}
+simpsons <- read.csv("simpsons_data.csv")[,-1]
+
+```
+
+```{r include=T, echo =F}
+head(simpsons, 20) %>% kable
+```
+
+## Simpson's paradox
+
+```{r echo=F}
+ggplot(simpsons, aes(x, y)) +
+  geom_point() +
+  theme_minimal()
+```
+
+
+## Simpson's paradox
+
+```{r echo=F}
+ggplot(simpsons, aes(x, y)) +
+  geom_point() +
+  stat_smooth(method="lm", col=2, se=F) +
+  theme_minimal()
+```
+
+## Simpson's paradox
+
+```{r echo=F}
+ggplot(simpsons, aes(x, y, col=group, group=group)) +
+  geom_point() +
+  stat_smooth(method="lm", se=F) +
+  theme_minimal()
+```
+
+## Why EDA?
+
+- To build sound statistical models you must understand the structure of your data!
+- Avoid jumping into regression modeling too quickly. 
+- Summarize and plot the data with dplyr and ggplot2.
+
+# Tools: dplyr
+
+## dplyr
+
+- `dplyr` implements the "split-apply-combine" strategy for data analysis:  "break up a big problem into manageable pieces, operate on each piece independently and then put all the pieces back together."
+- `dplyr` contains 5 core functions, or "verbs," for implementing the strategy:
+
+    + `select()`: subsets a dataset by *columns*.  
+    + `filter()`: subsets by *rows*.
+    + `arrange()`:  sorts a dataset.
+    + `mutate()`: creates a new variable.
+    + `summarize()`: creates a new dataset consisting of summary variables.
+
+- Use `mutate()` and `summarize()` in conjunction with `group_by()`.    
+
+## Piping syntax
+
+- The piping syntax (`%>%`) from the `magrittr` package makes `dplyr` code easier to conceptualize and read.  
+- The traditional syntax for R functions operates according to a nesting logic:  `str(mtcars)`.
+- With pipes the logic is sequential:  *rather than a function operating on a dataset we have datasets on which functions operate.*
+- The equivalent of `str(mtcars)` using pipes would be: `mtcars %>% str()`.  
+- Particularly as nesting gets involved, pipes are much easier to read and understand.
+- Base R: `head(subset(mtcars, cyl == 6))` 
+- `dplyr`: `mtcars %>% filter(cyl == 6) %>% head`
+
+# Tools:  ggplot2
+
+## ggplot2
+
+- Base R plotting is powerful and flexible but it can be cumbersome.  
+- `ggplot2` simplifies things when implementing the "split-apply-combine" strategy in which we want to split a dataset by group, apply a function---like a regression fit---and then recombine the groups for display and comparison. 
+- `ggplot2` automatically handles the colors, the legend and the linear fit by group.
+- Example: the earlier plot for Simpson's paradox.
+
+
+## Simpson's paradox:  Base R
+
+No legend!
+
+```{r echo=F}
+plot(simpsons$x, simpsons$y, main = "y ~ x, color by group",  col = simpsons$group)
+
+
+
+```
+
+## Simpson's paradox: ggplot2
+
+ggplot2 automatically handles the legend.
+
+```{r echo=F}
+ggplot(simpsons, aes(x, y, group = group, col = group)) +
+  geom_point() +
+  stat_smooth(method= "lm", se = F, col = "black") +
+  ggtitle("y ~ x, varying by group")
+
+
+```
+
+## ggplot2 code
+
+Here is the code for the plot:
+
+```{r fig.show='hide', echo=TRUE}
+ggplot(simpsons, aes(x, y, group = group, col = group)) +
+  geom_point() +
+  stat_smooth(method= "lm", se = F, col = "black") +
+  ggtitle("y ~ x, varying by group")
+
+
+```
+
+- Let's unpack these elements.
+
+## Base layer and aesthetic mapping 
+
+- `ggplot2` is organized by the idea of layering: start with a blank canvas and add layers. 
+- That is why each ggplot line is separated by '+.' Each additional line adds a layer to the plot.
+- The first layer creates the blank plot, providing information about the source dataframe and the aesthetic mapping. 
+- The `aes()` function (standing for "aesthetic") defined the mapping, telling ggplot which variables should be on the x- and y-axes, and if the elements of the plot should be colored or grouped. 
+- The syntax of the base layer goes like this: 
+- `ggplot(data, aes(x, y, col = grouping_variable, group = grouping_variable))` 
+
+## geom layer
+
+- Declare a "geom" indicating the sort of plot you want. 
+- The most common geoms include: 
+    + geom_point()
+    + geom_histogram()
+    + geom_bar()
+    + geom_boxplot()
+    + geom_line().
+- `ggplot(data, aes(x, y, col = grouping_variable, group = grouping_variable))` + 
+- `geom_point()`
+
+## Additional layers
+
+- Add additional layers by grouping and summarizing. 
+- Grouping is usually handled within the aesthetic mapping declared in the base layer ggplot() function, and a range of statistical functions will handle the summary, such as stat_smooth()
+- `ggplot(data, aes(x, y, col = grouping_variable, group = grouping_variable))` +
+- `geom_point()` + 
+- `stat_smooth()`
+
+## Faceting
+
+- With faceting you can display each group in its own plot.
+- `ggplot(data, aes(x, y)` +
+- `geom_point()` + 
+- `stat_smooth()` +
+- `facet_wrap(~grouping_variable)`
+- Rather than coloring Simpson's data by group, we can facet.
+
+
+## Faceting
+
+```{r echo=F}
+ggplot(simpsons, aes(x, y)) +
+  geom_point() +
+  ggtitle("y ~ x, varying by group") +
+  facet_wrap(~group) +
+  stat_smooth(method= "lm", se = F) 
+
+
+```
+
+
+
+## Homework
+
+- Homework:  "Introduction to the Tidyverse" at Datacamp (due before the next class).
+- This course will give you great practice with:
+    + data science process
+    + data manipulation and summary with dplyr
+    + exploratory graphics with ggplot2
+
+    
+
+

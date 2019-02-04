@@ -1,0 +1,663 @@
+---
+title: "Class 5: Statistics and Predictive Analytics"
+author: "Jeff Webb"
+output: 
+  beamer_presentation:
+    theme: "Madrid"
+    #colortheme: "dolphin"
+    fonttheme: "structurebold"
+    incremental:  false
+    fig_width: 7
+    fig_height: 6
+    fig_caption:  false
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T,  cache=F, warning = F, message = F)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(arm)
+d <- read.csv("day.csv")
+library(MASS)
+data(Boston)
+b <- Boston
+```
+
+
+## Outline of class tonight
+- Final Project
+- Lab 2 solutions/discussion
+- Class 5 slides
+    + More linear regression: review and statistical control.
+    + Transforming data to modeling non-linear data:  log transformations, polynomial terms and interactions
+    + Regression assumptions
+
+
+
+# Final Project
+
+## Final project
+
+- Interim report due **March 27** (two weeks from tonight).
+- Goal: Present 5 variable model in 1 page.
+- Interim report should include error metrics, including estimated model performance *out-of-sample* (more on that later).
+- Plan to submit to Kaggle.  You need to include your Kaggle score/rank in the interim report.
+- How to pick variables?
+    + Learn the data.
+    + Logically, given what you know of housing prices, which variables should be most predictive?  (Location, location, location.)
+    + Explore the data for the predictors that are highly correlated with the outcome.
+- Form groups.  Solo is acceptable, but it is definitely advantageous to be in a group!
+- Email me your groups.  I will put the groups into Canvas.
+
+# Lab 2 solutions and discussion
+
+# More linear regression
+
+## Conditional mean
+
+- The regression function estimates a **conditional mean**.
+- From the bike ridership data: 
+- For any temperature, t, the regression function of riders on temperature defines the mean number of riders given that temperature = t: $\mu(t) =\mathbf{E}[riders \mid temperature = t]$.   
+- In a multivariable model we add other conditions:  $\mu(t, y, s, h) =\mathbf{E}[riders \mid temperature = t, year = y, season = s, humidity = h]$.
+- Adding predictors will generally improve a model by 
+    + making its structural component more explanatory, 
+    + reducing the contribution of the stochastic component (unexplained error).
+
+## Multivariable models
+
+- However, it is possible to add too many variables to a model, creating a problem known as **overfitting**.
+- We will discuss overfitting and model selection next class. 
+- For now we can simplify and say that adding predictors to a model generally allows us to capture more real-world complexity and 
+    + make more accurate predictions  (predictive goal)
+    + better understand the unique influence of a predictor after controlling for other predictors (descriptive goal)
+- We will continue to focus on the descriptive goal tonight.
+
+   
+## Statistical control
+
+- What does it mean to "control" for other predictors in multivariable regression?
+- **Statistical control: separating out the effect of one particular predictor variable from the effects of the remaining variables on the outcome variable.** 
+- Statistical control is essential for inference because we must hold other variables constant to establish that a specific effect is due **uniquely** to one particular predictor. 
+- Synonyms for statistical control:  "holding constant," "controlling for," "accounting for,"  "correcting for the influence of." 
+- Statistical control helps us to understand the unique effects of a predictor because confounding predictor variables are held constant, thereby remvoing their influence.
+
+## Statistical control example
+
+- Consider: It is observed that drowning deaths are strongly correlated with ice cream sales. 
+- Does eating ice cream cause drowning?
+- Probably not.  What is the lurking variable here?
+- Temperature!  People swim and eat ice cream more when it is hot.
+- Ice cream sales predict drowning deaths in a regression until we add a **control**: temperature or (as a proxy for temperature) month. 
+- Controlling for month essentially fits a separate model of drowning ~ sales for every month (we get $p - 1$ $\beta$ coefficients), with the result that ice cream sales no longer predict drowning.
+- **Bottom line:  controlling for confounding variables is essential for successful regression modelling, especially when the goal is description.**
+
+## Does eating ice cream cause drowning?
+
+```{r echo =F, results='markup'}
+
+master_df <- data.frame(month = 1:12,
+                 drownings = c(1,2,3,4,5,6,7,6.5,5.5,4.5,3.5,2.5),
+                 sales = 0)
+
+df <- data.frame(month = c(rep(1,30), rep(2,30), rep(3,30), rep(4,30), rep(5,30), rep(6,30), rep(7,30), rep(6,30), rep(9,30), rep(10,30), rep(11,30), rep(12,30)))
+
+df$drownings <- c(rep(master_df$drownings[1],30),
+                  rep(master_df$drownings[2],30),
+                  rep(master_df$drownings[3],30),
+                  rep(master_df$drownings[4],30),
+                  rep(master_df$drownings[5],30),
+                  rep(master_df$drownings[6],30),
+                  rep(master_df$drownings[7],30),
+                  rep(master_df$drownings[8],30),
+                  rep(master_df$drownings[9],30),
+                  rep(master_df$drownings[10],30),
+                  rep(master_df$drownings[11],30),
+                  rep(master_df$drownings[12],30))
+set.seed(124)
+df$drownings2 <- rnorm(30*12, mean=df$drownings*100, sd = 100)
+df$sales <- rnorm(30*12, df$drownings*200, sd = 200)*100
+
+df$sales <- abs(df$sales)
+
+df$drownings <- abs(df$drownings2/10)
+df$sales <- rescale(df$sales) +rnorm(nrow(df))
+display(lm(drownings ~ sales, data = df))
+```
+
+## Does eating ice cream cause drowning?
+
+
+```{r}
+#display(lm(drownings2~ rescale(sales), df))
+
+ggplot(df, aes(sales, drownings2)) +
+  geom_point() +
+  stat_smooth(method="lm") +
+  theme_minimal() +
+  labs(title = "Drownings ~ ice cream sales",
+       y = "drownings")
+
+```
+
+
+## Does eating ice cream cause drowning?
+
+
+```{r echo = F, results='markup'}
+display(lm(drownings~ sales + factor(month), df))
+```
+
+
+## Does eating ice cream cause drowning?
+
+
+```{r echo = F}
+#display(lm(drownings2~ rescale(sales) + factor(month), df))
+
+ggplot(df, aes(sales, drownings2)) +
+  geom_point() +
+  stat_smooth(method="lm") +
+  theme_minimal() +
+  labs(title = "Drownings ~ ice cream sales + month",
+       y = "drownings") +
+  facet_wrap(~month)
+
+```
+
+## Causal inference
+
+- Regression is often used for causal inference, but "correlation is not causation."
+- To establish that x **causes** y requires additional pieces of evidence.  Minimally: 
+    + there must be covariation between x and y (look for a statistically significant $\beta$ coefficient for x).
+    + there must be a time-ordered relationship between x and y: first x then y.
+    + the researcher must eliminate plausible alternative explanations and make an argument.
+- Does ice cream cause drowning?  We can test this idea by adding month (a proxy for temperature) as a control.
+- Does pollution lower the amount that people are willing to spend on a house?
+- Not: medv ~ nox
+- Instead: medv ~ nox + crim + zn + indus + chas + rm + age  + rad + tax + ptratio + black +  lstat + dis
+
+## Causal inference
+- How do you know if you have all relevant controls in the model?
+- Short answer:  you don't.
+- Omitted variable bias is a real problem, but you don't necessarily know when you have omitted a variable!
+- All you can do is:
+    + think hard about the data generating process (DGP)
+    + read the academic literature for relevant theory that could be encoded in a model
+    + be skeptical about your results and include all the variables that **might be** influential
+- Never let your desire to please a client or get a "result" bias your impartiality!
+
+## Canvas quiz
+
+You are investigating the effect of an educational program on student term 
+gpa.  You fit a simple regression and find that the program coefficient is statistically significant. You would like to interpret this result causally.  What should you do?
+- Survey the students about how much they learned in the program.
+- Fit another regression including other possible explanatory variables.
+- Make sure that none of the student grades used to calculate term GPA preceded the program intervention.
+- Distrust the result.
+- All of the above.
+
+
+## PRACTICE: exploring data with linear regression
+
+class5script.R
+
+# Modeling non-linear data
+
+## Modeling non-linear data
+
+- Linear regression can effectively model very complex non-linear regression functions.
+- How?
+    + Transformations 
+    + Interactions
+    + Polynomials
+
+# Transformations 
+
+## Review: Centering and scaling inputs
+- Centering and scaling are linear transformations that do not change the fit of the model, just the scaling of the inputs.
+- Most of the centering and scaling functions in R, like `scale()` in base R, create z-scores:  center, then divide by the standard deviation of the centered variable.
+- The `rescale()` function in the arm package divides by 2 standard deviations.
+- This makes centered and scaled variables more comparable with categorical or binary variables. (see Gelman 2007: "Scaling regression inputs by dividing by two standard deviations")
+- 1 unit change in the case of `scale()` or caret's `preProcess("center","scale")` is a change of 1 sd.
+- 1 unit change in the case of `rescale()` is a change of 2 sd.
+- We only scale and center inputs, never the outcome variable.
+- Best to leave binary and categorical predictors uncentered and unscaled. 
+
+## Review: Center and scale continuous predictors to understand effect sizes
+- Centering and scaling makes it easier to understand effect sizes, and as we'll see, makes models with interactions more interpretable.
+- An effect size is simply the magnitude of the coefficient.
+- The size of $\beta$ answers the question:  how strong is the relationship between x and y?
+- The p-value, by contrast, answers the question:  how likely is that particular $\beta$ given the distribution under the null?
+- When variables are on different scales, it can be very difficult to compare effect sizes.
+
+## PRACTICE: centering and scaling
+
+class5script.R
+
+## Logarithms and e: some details
+- Consider a log transformation if your data is skewed, shows a non-linear increase or has a large range.
+- Rule of thumb:  If a variable has a spread of greater than two orders of magnitude (100x) then log transforming it  will likely improve the model and make interpretation easier.
+- We will use the natural log, designated $log_e$, or $ln$, or, in R code: log().
+- $e$ is a mathematical constant approximately equal to 2.718281828459. 
+- The natural logarithm of x is the power to which e would have to be raised to equal x. 
+- For example, $ln(7.5)$ is 2.0149..., because $e^{2.0149...}$ = 7.5. 
+- The natural log is the inverse function of the exponential function (and vice versa): they undo each other.
+- Hence, these identities: $e^{\ln(x)} = x$ (if $x > 0)$; $\ln(e^x) = x$
+- To put a log transformed value back on the original scale we simply exponentiate: $x = e^{ln(x)}$
+- In R code:  x = exp(log(x)).
+
+
+## Exponential increase
+```{r echo=F}
+data("uspop")
+pop <- uspop
+plot(pop, main="US population,  1790 - 1970")
+
+```
+
+## Log transformation improves interpretability
+```{r echo=F}
+
+plot(log(pop), main="Log of US population,  1790 - 1970")
+```
+
+<!-- ## exponentiated log of US population,  1790 - 1970 -->
+<!-- ```{r echo=F} -->
+
+<!-- plot(exp(log(pop))) -->
+<!-- ``` -->
+
+## Skewed data
+
+```{r echo = F}
+ggplot(b, aes(medv)) +
+  geom_histogram() +
+  theme_minimal() + 
+  labs(title = "Distribution of medv")
+```
+
+## medv ~ rm + lstat. $R^2$ = .64
+```{r results='markup', echo = F}
+lm(medv ~ rm + lstat, data=b) %>%
+  standardize %>%
+  display
+```
+
+## medv ~ rm + lstat. $R^2$ = .68
+
+```{r results='markup', echo = F}
+lm(log(medv) ~ rm + lstat, data=b) %>%
+  standardize %>%
+  display
+
+```
+
+## Interpreting a model with a log transformed outcome
+- Model:  $\ln(y_i) = \beta_0 +\beta_1x_1 ... + \beta_k x_k + \epsilon_i$
+- Residuals: $ln(y) - X\beta \sim N(0, \sigma^2)$
+- In a model with a log transformed outcome the intercept is the **geometric mean** not the **arithmetic mean** of the outcome when the inputs equal zero.
+- Geometric mean:  $(\prod_{i=1}^n a_i)^\frac{1}{n} = \sqrt[n]{a_1a_2...a_n}$. 
+- Geometric mean in R: `exp(mean(log(x)))`.
+- Arithmetic mean example: $\frac{1}{3}(1 + 2 + 3) = \frac{1}{3}(6) = 2$
+- Geometric mean example: $\sqrt[3]{1 * 2 * 3} = \sqrt[3]{6} = 1.82$
+- Coefficients with linear Y:  $\beta_1 = E[Y_{X + 1}] - E[Y_X]$
+- Coefficients with non-linear Y:  $\beta_1 = E[\ln(Y)_{X + 1}] - E[\ln(Y)_X]$, or $\beta_1$ = percent change in Y for each 1 unit increase in x.
+
+
+## Interpreting a model with a log transformed outcome
+
+```{r include = F}
+lm(log(medv) ~ chas, data=b) 
+```
+- Consider:  $\ln(medv) = 3.02 + .2549*chas$.
+- The intercept, 3.02, is average `log(medv)` value when `chas` is 0.
+- To put the intercept back on the original scale, exponentiate: $e^{3.02}$ = `r round(exp(3.02),2)`.
+- Remember: this is the *geometric mean*; linear regression estimates the expected *arithmetic mean* of `y` but the expected *geometric mean* of `log(y)`.
+- chas: An increase of 1 unit in chas is associated with an $e^{.2549}$ = `r round(exp(.2549),3)` = `r (round(exp(.2549),2) - 1)*100`% change in medv.
+- 1 is the baseline, from which we calculate percentage change.
+
+## Why is 1 the baseline?
+- In the case of `chas` we are comparing two groups:  `chas` = 0 and `chas` = 1.
+- When the outcome is `medv` then $\beta_1$ is $E[y | chas = 1]$ minus $E[y | chas = 0]$.
+- When the outcome is `log(medv)` then we are measuring percentage change and $e^{\beta_1}$ is a ratio (not a difference):  $e^{E[\ln(y) | chas = 1]}$ divided by $e^{E[ln(y) | chas = 0]}$.
+- The geometric mean of medv conditional on `chas` = 0 is `r exp(mean(log(subset(b, chas ==0)$medv)))`.
+- The geometric mean of medv conditional on `chas` = 1 is `r exp(mean(log(subset(b, chas ==1)$medv)))`.
+- As we saw the coefficient for `chas` was .2549 and $e^.2549$ = .29.
+- `r exp(mean(log(subset(b, chas ==1)$medv)))`/`r exp(mean(log(subset(b, chas ==0)$medv)))` = `r exp(mean(log(subset(b, chas ==1)$medv))) / exp(mean(log(subset(b, chas ==0)$medv)))`.
+- 1 is the baseline because that is where the numerator equals the denominator.
+
+## Interpreting a log-log (log transformed outcome and predictor).
+
+- Model:  $\ln(y_i) = \beta_0 +\beta_1\ln(x_1) ... + \beta_k x_k + \epsilon_i$
+- Typically the outcome is transformed --- price or income. But sometimes it makes sense to transform a predictor.
+- In a log-log model the intercept is the value of the outcome when the untransformed predictors = 0 or when the log transformed predictors = 1 (because `log(1)` = 0).
+- $\beta_1$ = percent change in Y for each 1 percent increase in x.
+
+## Canvas quiz
+
+Consider this regression equation:  $\ln(y) = 2.1 - .06x_1$.  How should we interpret the coefficient for $x_1$?  
+
+- The change in y for every .06 increase in $x_1$.
+- For every unit increase in x there is a .06 change in y.
+- If x increases by 1 then $\ln(y)$ goes up by 6%.
+- 6% is the change in y associated with a 1 unit increase in x.
+- 6% is the change in $\ln(y)$ associated with a 1 unit increase in x.
+
+
+
+## PRACTICE:  working with logs and exponentiation
+
+class5script.R
+
+# Polynomials
+
+## Polynomials
+
+- Adding polynomials of existing predictors to a model---$x^2$, $x^3$, etc.---is one way to capture a non-linear relationship between those predictors and the outcome.
+- A model with polynomials is still a linear model.  
+- The polynomial terms are added linearly: $y = x + x^2 + x^3$.
+
+## Polynomial example
+
+```{r echo = F}
+t1 <- lm(cnt ~ temp, data =d)
+t2<- lm(cnt ~ temp + I(temp^2), data =d)
+t3<- lm(cnt ~ temp + I(temp^2) + I(temp^3), data =d)
+t4<- lm(cnt ~ temp + I(temp^2) + I(temp^3) + I(temp^4), data =d)
+d$t1 <- fitted(t1)
+d$t2 <- predict(t2)
+d$t3 <- predict(t3)
+d$t4 <- predict(t4)
+
+```
+
+```{r echo = F}
+ggplot(d, aes(temp, cnt)) +
+  geom_point() +
+  stat_smooth(method="lm", se = F, col =2) +
+  theme_minimal() +
+  labs(title = "cnt ~ temp",
+       subtitle =  "R-square = .39")
+
+```
+
+## Polynomial example
+
+```{r echo = F}
+ggplot(d, aes(temp, cnt)) +
+  geom_point()+
+  geom_line(aes(temp, t2), col = 2, size=1)+
+    theme_minimal() +
+  labs(title = "cnt ~ temp + I(temp^2)",
+       subtitle=  "R-square = .45")
+
+```
+
+
+## Polynomial example
+
+```{r echo = F}
+ggplot(d, aes(temp, cnt)) +
+  geom_point()+
+  geom_line(aes(temp, t3), col = 2, size=1)+
+    theme_minimal() +
+  labs(title = "cnt ~ temp + I(temp^2) + I(temp^3)",
+       subtitle=  "R-square = .46")
+
+```
+
+
+## Polynomial example
+
+```{r echo = F}
+ggplot(d, aes(temp, cnt)) +
+  geom_point()+
+  geom_line(aes(temp, t4), col = 2, size=1)+
+    theme_minimal() +
+  labs(title = "cnt ~ temp + I(temp^2) + I(temp^3) + I(temp^4)",
+       subtitle=  "R-square = .46")
+```
+
+## Polynomial guidelines
+
+- Generally don't go beyond quadratic unless you have strong reasons to do so.
+- Even for quadratic, you should have a justification:  Does your account of the DGP indicate the need for  a quadratic term?
+- In the case of bike ridership data, our justification is rooted in our understanding of the data generating process:  bike riding increases as the weather gets warmer, until it gets too warm, at which point riding decreases
+- Include terms for all lower order polynomials. 
+
+## PRACTICE:  working with polynomial terms
+
+class5script.R
+
+# Interactions
+
+## Interpreting the intercept and $\beta$ coefficients for interactions
+```{r results='markup'}
+display(lm(cnt ~ temp * factor(season), data=d))
+
+```
+
+## Always plot interactions!
+```{r echo=FALSE}
+ggplot(d, aes(temp, cnt, col= factor(season))) + geom_point() + stat_smooth(method="lm", se=F)+
+  ggtitle("cnt ~ temp by season")
+
+```
+
+## Detail: interpreting the intercept and $\beta$ coefficients for interactions
+- Model: $cnt = -111 +  9119temp  + 1513season2 + 6233season3  + 2189season4  -2525temp:season2 -9795temp:season3 - 2851temp:season4$.
+- The intercept is the predicted value of cnt when temp = 0 and season = 1 (the reference category).
+- But, temp never does = 0 in this dataset, so the intercept is uninterpretable--can't have -111 riders!
+- The interaction represents the fact that the relationship between cnt and temp depends on the season (though the only real difference is in season 3).
+- The interaction can be interpreted as a difference in slopes:
+- If we go from season 1 to season 3, the slope of the linear relationship between temp and cnt (the $\beta$ for temp) decreases by 9795.
+
+
+## Detail: interpreting main effects in the presence of interactions
+- Main effects are tricky to interpret in the presence of an interaction. 
+- The interaction makes the main effect conditional on levels in the other variable.
+- For example:
+    + The coefficient for temp represents the average increase in ridership for a 1 unit increase in temp *when season = 1* (the reference category).
+    + The coefficients for season represent the increase in average ridership for a change from the reference category *when temp = 0*.
+- Problems:  temp does not = 0, and it cannot increase 1 unit because its range is: `r round(range(d$temp),2)`.
+- We must center inputs.
+
+## Canvas quiz
+
+Model:  $y = 3 + 2x_1 - 5 x_2 + 6x_1:x_2$.  Which of the following statements is true?
+
+- The coefficient for $x_1$ represents the unconditional mean of y.
+- The coefficient for $x_1$ is the expected change in y associated with a 1 unit increase in $x_1$ when $x_2$ is 0.
+- The model is not interpretable unless the predictors are centered.
+- When $x_1$ increases by 1 the slope of $x_2$ predicting y increases by 6.
+- All but the first.
+
+## Working with coefficients in models with interactions
+
+```{r echo = F,results='markup'}
+display(standardize(lm(cnt ~ temp * factor(season), data=d)))
+```
+
+- Predicted change in cnt associated with 1 unit change in z.temp?
+- **Can't answer this because temp depends on season.**
+
+
+## Working with coefficients in models with interactions
+
+```{r echo = F,results='markup'}
+display(standardize(lm(cnt ~ temp * factor(season), data=d)))
+```
+
+- Predicted change in cnt associated with 1 unit change in z.temp in season 1? **3339**
+
+
+## Working with coefficients in models with interactions
+
+```{r echo = F,results='markup'}
+display(standardize(lm(cnt ~ temp * factor(season), data=d)))
+```
+
+- Predicted change in cnt associated with 1 unit change in z.temp in season 2? **3339 - 924**
+
+## Working with coefficients in models with interactions
+
+```{r echo = F,results='markup'}
+display(standardize(lm(cnt ~ temp * factor(season), data=d)))
+```
+
+- Predicted change in cnt associated with 1 unit change in z.temp in season 3? **3339 - 3586**
+
+
+## Working with coefficients in models with interactions
+
+```{r echo = F,results='markup'}
+display(standardize(lm(cnt ~ temp * factor(season), data=d)))
+```
+
+- Predicted change in cnt associated with 1 unit change in z.temp in season 4? **3339 - 1044**
+
+## PRACTICE:  Interactions
+
+class5script.R
+
+
+# Regression assumptions
+
+## Regression assumptions
+- Regression results are only accurate given a set of assumptions.
+- **Validity of the data** for answering the research question.
+- **Linearity of the relationship** between outcome and predictor variables.
+- **Independence of the errors** (in particular, no correlation between consecutive errors as in time series data).
+- **Normality of errors.**
+- **Equal variance of errors** (homoscedasticity).
+- **L**inearity, **I**ndependence, **N**ormality, **E**qual variance:  **LINE**.
+- Don't stress about LINE: most of these problems are not fatal and can be fixed by improving your model---picking different or additional variables or using a different distribution or modelling framework.
+- Residual plots are the best tool for assessing whether model assumptions have been satisfied.
+
+
+## Validity of the data for answering the research question
+- The outcome measure should accurately reflect the phenomenon of interest.
+- The model should include all the relevant variables and should generalize to all the cases to which it is applied.
+- For example, if you want to know about intelligence or cognitive development, a model of test scores misses the mark.
+- Think critically about the relationship between research question and data!
+
+
+## Linearity assumption
+The most important mathematical assumption of the regression model is that the outcome is a deterministic linear function of the separate predictors: $y = \beta_{0} + \beta_{1}x_{1} + \beta_{2}x_{2}...$
+
+
+## Linearity assumption
+```{r echo=F}
+ggplot(d, aes(temp, cnt)) + geom_point() + stat_smooth(method="lm") +
+  ggtitle("cnt ~ temp")
+```
+
+## Non-linearity diagnosis
+- Check bivariate plots (as above)
+- Check residual plots, because the failure to model non-linearity will show up in the residuals
+- `plot(model object, which = 1)` is a built-in R function for checking the error distribution.
+
+## Non-linearity diagnosis:  residual plot
+
+```{r echo = F}
+m <- lm(cnt~temp, data=d)
+plot(m, which=c(1))
+```
+
+
+## What to do about non-linearity
+- Add quadratic  terms and/or interaction terms.
+- Consider transforming the outcome variable: log(y) for skewed outcome variables is a  possibility
+- Use a non-parametric approach like KNN instead.
+
+## What to do about non-linearity
+```{r, echo=F}
+m <- lm(cnt~temp + I(temp^2) , data=d)
+plot(m, which=c(1))
+```
+
+A new problem appears:  unequal variance of errors.  Discussion below.
+
+## Non-independence of errors diagnosis
+- Happens in time-series or when observations are clustered (multiple data points from single individuals, stores, classrooms, etc).
+- Look at a residual plot.
+
+## Non-independence of errors diagnosis: plot
+```{r echo=F}
+m <- lm(cnt~temp + I(temp^2) , data=d)
+
+plot(d$instant,residuals(m), main="Residuals by date", pch=20)
+abline(h=0, col=2)
+```
+
+## What to do about non-independence of errors
+- Switch to an appropriate model for time series (ARIMA, etc).
+- Use hierarchical/multilevel models to handle clustering.
+- Add variables to a linear model that account for time or clustering: year, season, month, weekday.
+
+## What to do about non-independence of errors: add variables
+```{r echo=F}
+m <- lm(cnt~temp + I(temp^2) +yr +factor(season) + factor(weekday) + factor(mnth), data=d)
+plot(d$instant,m$residuals, main="Residuals by date with added variables", pch=20)
+abline(h=0, col=2)
+```
+
+
+## Normality of the residuals
+- This is not a very important assumption, actually.
+- Linear regression is extremely robust to violations of normality.
+- But, if you want to check it: `qqPlot(model object)`, in the car package (among other implementations).
+
+## Normality of the residuals
+```{r echo = F, wanring = F, message=F}
+library(car)
+m <- lm(cnt~temp + I(temp^2)  + factor(weathersit) + yr
+        +hum + windspeed+ factor(mnth) + factor(weekday) +holiday +workingday, data=d)
+qqPlot(m,pch=20)
+```
+
+## Equal variance of errors diagnosis and correction
+
+```{r, echo=F}
+m <- lm(cnt~temp + I(temp^2) , data=d)
+plot(m, which=c(1))
+```
+
+
+## Equal variance of errors diagnosis and correction
+- Residuals have a funnel shape.
+- See previous slide!
+- Try transforming the outcome variable by taking the log (only works with positive values).
+- Calculate adjusted standard errors that are robust to unequal variance, as in the sandwich package.
+- Use a non-parametric technique like KNN.
+
+## Canvas quiz 
+
+```{r echo = F}
+plot(lm(medv ~ lstat, b), which = 1)
+```
+
+## Canvas quiz 
+
+With reference to the preceding plot, which of the following assumptions for linear regression seem most obviously violated in this model?
+
+- Linearity of the relationship between predictor and outcome.
+- Independence of errors
+- Normality of errors
+- Equal variance of the errors
+- Most likely linearity and normality.
+- It is hard to tell but probably all of them.
+
+
+## PRACTICE:  residual analysis
+
+class5script.R
+
+# Homework
+
+## Homework
+
+- Lab 3 due before next class
+- Read **Statistical Learning**, 5.1 and 6.1
+
+## Canvas quiz

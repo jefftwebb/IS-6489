@@ -1,0 +1,690 @@
+---
+title: "Class 4: Statistics and Predictive Analytics"
+author: "Jeff Webb"
+output: 
+    ioslides_presentation:
+      incremental: yes
+      widescreen: yes
+runtime: shiny
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, results='asis', cache=F, warning = F, message = F)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(arm)
+library(shiny)
+d <- read.csv("day.csv")
+```
+
+
+## Outline of class tonight
+- Questions?
+- Final project and due dates
+- Finish up cleaning and exploring the Salt Lake MSA wage and occupations data
+- Statistical inference 
+    + Sampling
+    + Probability distributions 
+    + Central Limit Theorem (CLT)
+    + Estimation uncertainty (standard errors, confidence intervals)
+    + Null Hypothesis Statistical Testing (NHST)
+    + Effect sizes and p-values
+- Code demonstration and practice throughout
+- Homework
+
+# Final project
+
+## Final Project
+- PDF of the project assignment is available at Canvas
+- Two components:  
+    + Interim report (1 page):  brief description of your 5-variable model's performance. **Due**: prior to class 7 (Mar 27).
+    + Final report (5 pages of text plus additional pages for relevant plots and tables):  this should be a client-ready report using best practices of statistical communication. **Due**:  Sometime in the week following the last class, with a hard deadline of one week following the final class meeting (May 1).
+- Refer to the project assignment for further details, including grading rubrics.
+- Self-organize into groups of size 1-3 and **have one person email me with the names of group members** (even if you are a group of 1). 
+
+# Salt Lake MSA wage and occupations data 
+
+## Finish up cleaning and exploring the Salt Lake MSA wage and occupations data 
+- Find class3script1.R at Canvas
+
+
+# Statistical Inference
+
+
+## Samples vs. Population
+
+- The difference between a sample and the population is foundational to statistics.
+- A *population* consists in all the participants or objects that are relevant for a particular study.
+- For example, if you were studying the average height of people in the US then the population for your study would be everyone living in the US---a very large number.
+- Because studying a population is often not practical (as in the case of heights), we study a sample.
+- A *sample* is any subset of the population under study.
+- **However, samples vary and give imperfect information about the population**. 
+- If you took 100 different samples of people living in the US you would likely get 100 different sample means of height. 
+
+## Sample statistics, population parameters, inference
+- The characteristics of a sample are called "**sample statistics**."
+- The sample mean is denoted $\bar{x}$ and the sample standard deviation is denoted $s$.  
+- The characteristics of the population are called "**population parameters**."
+- The population mean is denoted $\mu$ and the population standard deviation is denoted $\sigma$. (Population parameters are usually represented with Greek letters.)
+- **Inferential statistics** attempts to learn about the underlying population from sampled data, to infer population parameters ($\mu$, $\sigma$) from sample statistics ($\bar{x}$, $s$).
+- The frequentist approach to statistical inference is based on the notions of **repeated sampling** and **probability**.
+
+## Probability
+- What is the probability of getting heads if you flip a fair coin?
+- The probability is .5:  a fair coin has the same chance of being heads or tails. 
+- Note: probability is always a number between 0 and 1, with 0 meaning "would never happen" and 1 meaning "should always happen." .5 means "equal chance."
+- How do we know head and tails are equally probable?  Through repeated trials, by flipping a coin over and over. 
+- Often we model a population---for example, coin flips---with a probability distribution.
+- The distribution of coin flips is known as the **Bernouli distribution** when the probability of heads (and tails) is .5.
+
+
+## Bernouli distribution
+
+- More formally:  the Bernoulli distribution is the discrete probability distribution of a random variable taking the value 1 ("success") with probability $p$ and the value 0 ("failure") with probability $q=1-p$.
+- Note:  a random variable is a variable whose possible values are outcomes of a random phenomenon. 
+- Why "discrete"?  The possible values for the Bernoulli distribution are 0 and 1. 
+- For Bernoulli random variables the mean is $p$ and variance is $p(1-p)$.
+- R code for sampling Bernoulli random variables:  `rbinom(n, size = 1, prob)`, where `n` is the size of the random sample, `size = 1` indicates a Bernoulli trial, and `prob` is the probability of success.
+
+
+## Bernouli distribution
+
+```{r}
+(fair_coin <- rbinom(n = 20, size = 1, prob = .5))
+```
+\pause
+```{r}
+mean(fair_coin) # mean = p = .5
+```
+\pause
+```{r}
+var(fair_coin) # variance = p(1 -p) = .5 * .5 = .25
+
+```
+
+## Binomial distribution
+
+- The binomial distribution is also a discrete probability distribution summarizing the outcome of $n$ Bernoulli random variables. 
+- Tossing the coin $n$ times with a given probability $p$ will produce a binomial distribution with parameters $n$ and $p$, which we represent as B($n,p$).
+- We don't keep track of the individual flips, but only how many heads/tails there were in total. 
+- The distribution is discrete because outcomes are limited to $0,1,2,3,...n$. 
+- For binomial random variables the mean is $np$ and variance is $np(1-p)$.
+- R code for sampling from the binomial distribution:  `rbinom(n, size, prob)`, where `n` is the size of the random sample, `size` is the number of Bernoulli trials, and `prob` is the probability of success.
+
+## Binomial distribution
+```{r}
+(rep_fair_coin <- rbinom(n = 20, size = 100, prob = .5))
+```
+\pause
+```{r}
+mean(rep_fair_coin) # mean = np = 100 * .5 = 50
+```
+\pause
+```{r}
+var(rep_fair_coin) # variance = np(1 - p) = 100*.5(.5) = 25
+
+```
+
+## Canvas quiz
+
+True or False?
+
+- Probability distributions are used to summarize a dataset.
+- Negative probabilities represent very unlikely events.
+- The Bernoulli distribution represents possible binary outcomes with given probability $p$.
+- A random sample guarantees a certain number successes from the Bernoulli distribution.
+- The binomial distribution is related to the Bernoulli distribution.
+- The mean of the binomial distribution with a given $p$ is a theoretical entity that we may not observe in any particular sample.
+
+
+## Probability mass function 
+- For a discrete distribution, the **probability mass function** computes the probability that the variable takes a particular value.  
+- For a binomial random variable, the probability mass function is given by $$f(k) = \binom{n}{k} p^k (1-p)^{n-k}$$ where $\binom{n}{k} = \frac{n!}{k!(n-k)!}$ is the number of ways to arrange the $k$ heads among the $n$ flips. 
+
+## Example calculation of PMF for B($6,.5$)
+What is probability for a fair coin  $0, 1,..., 6$ heads after six tosses?
+
+```{r include = F}
+probs <- c(choose(6,0)*.5^0 * .5^6, 
+          choose(6,1)*.5^1 * .5^5,choose(6,2)*.5^2 * .5^4,
+choose(6,3)*.5^3 * .5^3,
+choose(6,4)*.5^4 * .5^2,
+choose(6,5)*.5^5 * .5^1,
+choose(6,6)*.5^6 * .5^0)
+```
+
+$\Pr(0\text{ heads}) = \Pr(X = 0) = {6\choose 0}0.5^0 (1-0.5)^{6-0}= 0.015625$
+$\Pr(1\text{ heads}) = \Pr(X = 1) = {6\choose 0}0.5^1 (1-0.5)^{6-1}= 0.09375$
+$\Pr(2\text{ heads}) = \Pr(X = 2) = {6\choose 0}0.5^2 (1-0.5)^{6-2}= 0.234375$
+$\Pr(3\text{ heads}) = \Pr(X = 3) = {6\choose 0}0.5^3 (1-0.5)^{6-3}= 0.3125$
+$\Pr(4\text{ heads}) = \Pr(X = 4) = {6\choose 0}0.5^4 (1-0.5)^{6-4}= 0.234375$
+$\Pr(5\text{ heads}) = \Pr(X = 5) = {6\choose 0}0.5^5 (1-0.5)^{6-5}= 0.09375$
+$\Pr(6\text{ heads}) = \Pr(X = 6) = {6\choose 0}0.5^6 (1-0.5)^{6-6}= 0.015625$
+
+What do you notice about these probabilities?
+
+## Plot of PMF for B($6,.5$)
+
+```{r echo = F}
+df <- data.frame(heads = seq(0,6), probability = probs)
+
+ggplot(df, aes(heads, probability)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() 
+```
+
+The probability mass function looks normal!
+
+## Repeated sampling
+- When $n$ is large (something like n > 20) a normal distribution with mean $np$
+ and variance $np(1−p)$ (represented as $N(np, np(1-p)$) approximates B($,n,p$).
+- This is a special case of one of the most amazing facts in all of math and statistics:  **the Central Limit Theorem** or CLT.
+- CLT: if we repeatedly sample from *any* distribution and calculate a summary---*even if that distribution is not normally distributed*---the distribution of those summary statistics will be normal.
+- Moreover, the mean of those summary statistics will converge to the population parameter.
+- With the binomial distribution we are adding up successes from Bernoulli trials, hence the binomial probabilities are normally distributed (roughly at small $n$, exactly at large $n$).
+
+<!-- ## Sampling distribution -->
+<!-- - A sampling distribution is the distribution of a statistic calculated from random samples. -->
+<!-- - Procedure: -->
+<!--     + Take multiple random samples -->
+<!--     + Calculate a statistic (like $\bar{x}$) for each sample -->
+<!--     + The distribution of those calculated statistics is a sampling distribution. -->
+<!-- - The sampling distribution will be normally distributed and (with enough samples) its mean will converge to the population parameter. -->
+<!-- - The standard error (SE) of a statistic is the standard deviation of its sampling distribution. -->
+
+
+## Central Limit Theorem
+- Let's see how the CLT works.
+- We will try repeated sampling to see if the distribution of sample means---known as a **sampling distribution** of sample means---is normally distributed.
+- We will sample from the uniform distribution (defined by equal probability of selection from an interval [$a,b$]).
+- For $U(a,b)$, note that $\mu$ is defined as $\frac{a-b}{2}$.
+- First, what does the underlying $U(0,1)$ look like?
+
+## Samples from $U(0,1)$, n = 100
+
+```{r echo = F}
+df <- data.frame(x = runif(100),
+                 x2 = runif(100),
+                 x3 = runif(100))
+ library(gridExtra)
+
+p1 <- ggplot(df, aes(x)) +
+  geom_histogram() +
+  theme_minimal() +
+  labs(title = "sample 1",
+       x = "x")
+
+p2 <- ggplot(df, aes(x2)) +
+  geom_histogram() +
+  theme_minimal()+
+  labs(title = "sample 2",
+       x = "x")
+
+p3 <- ggplot(df, aes(x3)) +
+  geom_histogram() +
+  theme_minimal()+
+  labs(title = "sample 3",
+       x = "x")
+
+grid.arrange(p1,p2,p3, ncol= 3)
+
+```
+
+## Demonstration of the Central Limit Theorem
+
+```{r echo=F}
+shinyUI(fluidPage(
+
+  sidebarLayout(
+
+    sidebarPanel(
+       sliderInput("n_samples", 
+                   label = "Number of samples",
+                   min = 1, 
+                   max = 500, 
+                   value = 5, 
+                   step = 1)
+     ),
+
+    mainPanel(
+      renderPlot({
+        library(gridExtra)
+        #set.seed(123)
+        df <- data.frame(n = 1:input$n_samples,
+                 samp_dist = replicate(input$n_samples, mean(runif(5))))
+        plot1 <- df %>%
+          mutate(cum_mean = cummean(samp_dist)) %>%
+          ggplot(aes(n, cum_mean)) +
+          geom_line(col = 2) +
+          geom_hline(yintercept = .5) +
+          theme_minimal() + 
+          labs(title = "Mean of the sampling distribution (red) vs. population mean (black)",
+               subtitle = "Random samples of size n = 5 drawn from U(0,1)",
+            x = "number of samples",
+               y = "mean of the sampling distribution")
+        
+        plot2 <- ggplot(df, aes(samp_dist)) +
+          geom_histogram() +
+          theme_minimal() + 
+          geom_vline(xintercept = .5) + 
+          geom_vline(xintercept = mean(df$samp_dist), col = 2)+
+          labs(title = "Mean of the sampling distribution (red) vs. population mean (black)",
+               subtitle = "Random samples of size n = 5 drawn from U(0,1)",
+            x = "sampling distribution of sample means")
+        
+        grid.arrange(plot1, plot2)
+        
+        })
+    )
+  )
+))
+
+```
+
+
+## Back to populations and samples
+- If we were able to measure the population then we would have no use for the tools of statistical inference: True or False?
+- **True**
+- Typically, we want to know/learn facts about a population---for example, heights of men and women---but don't have access to the population:  
+    + the group is large, or
+    + the members are hard to find, or 
+    + it is too costly to do a census. (The US Census Bureau has a $1.5 billion budget.)
+- So instead of doing a census, we sample.
+
+## Sampling
+
+- We use the properties of samples to make inferences about population characteristics:
+    + $\hat{\beta}$ provides evidence for $\beta$ (we use the hat notation, "^", to indicate "estimate of")
+    + $\bar{x}$ provides evidence for $\mu$ 
+    + $s$ provides evidence for $\sigma$
+- But there are problems with this inferential process:  
+- **Samples differ**  as a function of sample size, $n$, and population standard deviation, $\sigma$, and therefore give potentially misleading information about the population.
+
+## Sampling variation as a function of sample size
+
+```{r echo=F}
+
+
+shinyUI(fluidPage(
+
+  sidebarLayout(
+
+    sidebarPanel(
+       sliderInput("seed", 
+                   label = "Seed",
+                   min = 1, 
+                   max = 5000, 
+                   value = 1, 
+                   step = 1),
+       "Select seed to re-render plot"
+       ),
+
+    mainPanel(
+      renderPlot({
+        library(gridExtra)
+        set.seed(input$seed)
+        
+        df1 <- data.frame(obs = rnorm(5, sd = 5))
+        plot1 <- ggplot(df1, aes(obs)) +
+        geom_density() +
+        geom_vline(xintercept = 0, col = 2) +
+        geom_vline(xintercept = mean(df1$obs), linetype = 2)+
+          labs(x = "",
+               title= "Random samples of n = 5 from N(0,5)",
+               subtitle = "Sample mean (red) vs. population mean (black)") +
+          scale_x_continuous(limits = c(-15, 15))
+        
+        df2 <- data.frame(obs = rnorm(500, sd = 5))
+        plot2 <- ggplot(df2, aes(obs)) +
+        geom_density() +
+        geom_vline(xintercept = 0, col = 2) +
+        geom_vline(xintercept = mean(df2$obs), linetype = 2) +
+          labs(x= "observations",
+               title = "Random samples of n = 500 from N(0,5)") +
+          scale_x_continuous(limits = c(-15, 15))
+        
+        grid.arrange(plot1, plot2)
+        })
+    )
+  )
+))
+
+```
+
+## Sampling variation as a function of population variance
+
+```{r echo=F}
+
+
+shinyUI(fluidPage(
+
+  sidebarLayout(
+
+    sidebarPanel(
+       sliderInput("newseed", 
+                   label = "Seed",
+                   min = 1, 
+                   max = 5000, 
+                   value = 1, 
+                   step = 1),
+       "Select seed to re-render plot"
+       ),
+
+    mainPanel(
+      renderPlot({
+        library(gridExtra)
+        
+        set.seed(input$newseed)
+        
+        df1 <- data.frame(obs = rnorm(10, sd = 10))
+        
+        plot1 <- ggplot(df1, aes(obs)) +
+        geom_density() +
+        geom_vline(xintercept = 0, col = 2) +
+        geom_vline(xintercept = mean(df1$obs), linetype = 2)+
+          labs(x = "",
+               title= "Random samples of n = 10 from N(0,10)",
+               subtitle = "Sample mean (red) vs. population mean (black)") +
+          scale_x_continuous(limits = c(-15, 15))
+        
+        df2 <- data.frame(obs = rnorm(10, sd = 1))
+        
+        plot2 <- ggplot(df2, aes(obs)) +
+        geom_density() +
+        geom_vline(xintercept = 0, col = 2) +
+        geom_vline(xintercept = mean(df2$obs), linetype = 2) +
+          labs(x= "observations",
+               title = "Random samples of n = 10 from N(0,1)") +
+          scale_x_continuous(limits = c(-15, 15))
+        
+        grid.arrange(plot1, plot2)
+        })
+    )
+  )
+))
+
+```
+
+
+## Canvas quiz
+What have we learned?  Select all that apply.
+
+- As $n$ increases, the variability of the sampling distribution decreases, and the mean of the sampling distribution approximates the population parameter.
+- As population variance decreases, the variability of the sampling distribution decreases, and the mean of the sampling distribution approximates the population parameter.
+- Inferential statistics doesn't work that well with small sample sizes.
+- Inferential statistics *really* don't work well with small sample sizes and when the phenomenon of interest is variable.
+
+## Canvas quiz
+
+What is a sampling distribution?
+
+- A random sample.
+- A collection of sample statistics calculated from random samples of a population.
+- The standard deviation of a population.
+- A distribution of samples.
+
+## Standard error ($SE$)
+- $SE$ is defined as the standard deviation of a statistic's sampling distribution.
+- $SE$ provides guidance on how much the sample statistic is likely to vary in repeated sampling, and therefore how confident we should be in an estimate of a population parameter based on that sample statistic.
+- $SE$ is a measure of certainty: the larger it is, the more uncertain we are about how close the sample statistic is to the population parameter.
+- Problem:  We don't usually have a sampling distribution to calculate an $SE$ and must estimate it using information from our sample. 
+- The formula for the standard error of the mean ($SEM$):  $\frac{{s }}{\sqrt{n}}$.
+- What happens to the SEM when $s$ (our best available estimate of population $\sigma$) is large?
+- What happens to the SEM when $n$ is small?
+
+
+## Using $SEM$ to compute confidence intervals (CIs) for $\mu$
+- Our estimates of population parameters like $\mu$ may be fundamentally uncertain but we can be precise about that uncertainty. (Statistics is the science of uncertainty.)
+- We can use $SEM$ to compute confidence intervals (CIs) that quantify the uncertainty inherent in  estimating $\mu$  using $\bar{x}$.
+- 95% CIs for $\mu$:  [$\bar{x}$ - 1.96 x $SEM$, $\bar{x}$ + 1.96  x $SEM$] 
+- Interpretation: under repeated sampling 95% of the CIs will contain $\mu$.
+
+
+## Why 1.96?
+- As we've seen, $SEM$ is the standard deviation of the $\bar{x}$s, which we know (from the CLT) will be distributed normally.
+- 95% of the area under the normal distribution lies within 1.96 (or approximately 2) standard deviations of the mean.
+- We use 1.96 standard deviations to define our high confidence region for $\mu$.
+
+## Area under the normal curve by standard deviation
+```{r, echo=FALSE}
+plot(seq(-3.2,3.2,length=50),dnorm(seq(-3,3,length=50),0,1),type="l",xlab="",ylab="",ylim=c(0,0.5))
+segments(x0 = c(-3,3),y0 = c(-1,-1),x1 = c(-3,3),y1=c(1,1))
+text(x=0,y=0.45,labels = expression("99.7% of the data within 3" ~ sigma))
+arrows(x0=c(-2,2),y0=c(0.45,0.45),x1=c(-3,3),y1=c(0.45,0.45))
+segments(x0 = c(-2,2),y0 = c(-1,-1),x1 = c(-2,2),y1=c(0.4,0.4))
+text(x=0,y=0.3,labels = expression("95% of the data within 2" ~ sigma))
+arrows(x0=c(-1.5,1.5),y0=c(0.3,0.3),x1=c(-2,2),y1=c(0.3,0.3))
+segments(x0 = c(-1,1),y0 = c(-1,-1),x1 = c(-1,1),y1=c(0.25,0.25))
+text(x=0,y=0.15,labels = expression("68% of the data within 1" * sigma),cex=0.9)
+```
+
+
+## PRACTICE: SEM and Confidence intervals in R
+- So, based on a sample, we don't know the *actual* value of $\mu$ but we have a pretty good idea of its *possible* values.
+- class3script2.R
+ 
+## The bootstrap 
+- Sometimes $SE$s are challenging---or impossible---to compute analytically. 
+- The bootstrap is a simple computational method to simulate $SE$s and CIs for virtually any sample statistic.
+- Simulation using the bootstrap is useful because we always want to present quantities of interest **not as point estimates but as plausible ranges of values**.
+
+## The bootstrap: steps
+1. Resample the original data by taking many (say, 1000) samples of size $n$ (that is, the same size as the original data) *with replacement*.  These are called **"bootstrap samples."**
+2. Compute and store the quantity of interest (such as $\bar{x}$) for each bootstrap sample. 
+    + You will have 1000 instances of the statistic.
+    + This **bootstrap distribution** is equivalent to a sampling distribution for the statistic, but it is based on just one sample (your original sample), not many samples.
+3. Estimate the $SE$ for the statistic by computing the standard deviation of its bootstrap distribution.  
+4.  Use the $SE$ to compute CIs, or simply find the $2.5^{th}$ and the $97.5^{th}$ percentile of the distribution.
+
+
+## PRACTICE:  coding the bootstrap in R
+
+- class3script2.R
+
+
+
+## Null Hypothesis Statistical Testing  or NHST
+- We use statistical inference to estimate population parameters from sample statistics. 
+- Usually statistical inference is discussed in the context of statistical decision procedures. 
+- For example, we might want to know whether two samples differ from each other.
+- The samples being compared may have different means, but the inferential question is whether they come from populations with different underlying parameters. 
+- In the context of regression we want to know whether $\beta$ is different from 0 . (Slope of 0 indicates no relationship.)
+- The decision procedures for answering such questions are known, in frequentist statistics, as "null hypothesis significance testing" or NHST.
+
+## Example:  no significant relationship between x and y; slope of 0
+
+```{r echo= F}
+ggplot(data.frame(x=rnorm(100), y=rnorm(100)) , aes(x,y)) +
+  geom_point() +
+  stat_smooth(method="lm", se = F)+
+  theme_minimal()
+
+```
+
+
+## Example:  slope significantly different from 0? How would we know?
+
+```{r echo= F}
+df <- data.frame(x=rnorm(100))
+df$y <- -rnorm(100, df$x, sd=3)
+ggplot(df , aes(x,y)) +
+  geom_point() +
+  stat_smooth(method="lm", se = F)+
+  theme_minimal()
+
+```
+
+## NHST: Proof by contradiction
+- NHST works by asserting a "null hypothesis," $H_0$, that there is no population difference between group means or difference from 0 in regression slope. 
+- The null hypothesis essentially says that chance alone is responsible for any observed difference in the sample.
+- The alternative hypothesis, $H_a$, states that there *is* a true difference in the population.
+- If the null hypothesis proves to be statistically unfounded based on the data then we "reject the null."
+- The procedure goes like this:
+    + We determine how likely it would be for a set of observations to occur if $H_0$ were true. This is the distribution under the null.
+    + Then we compare our observed value to that null distribution.
+    + If our observed value is extremely rare---occurring less than 5% or 1% of the time---then we can reject $H_0$ as probably false.
+    + *Rejecting $H_0$ is not, however, the same as proving $H_a$ true.*
+   
+
+## P-values
+- We use *p-values* to decide whether to reject $H_0$.
+- The p-value is the probability, under $H_0$, of collecting data that is equal to or more extreme than what you observed.
+- P-value stands for "probability value."
+- Think of the p-value as a measure of surprise: the smaller the p-value, the more unlikely your observed value is due to chance, and the more surprised you would be if $H_0$ were true. 
+- We arbitrarily decide on a threshold, $\alpha$, for rejecting the null.
+- By convention $\alpha$ is usually set at p < .05. (Sometimes you see .01 or .1.)
+- *Critical values* mark the regions in the tails of the null distribution containing probability density equal to $\alpha$ (usually .05, with .025 on the right and .025 on the left).
+- Observed values more extreme than the critical values are "statistically significant."
+
+## P-values: Null distribution for an A/B test
+
+```{r echo =F}
+null <- replicate(10000, mean(rnorm(100, mean = 0, sd = 1)))
+
+ggplot(data.frame(null=null), aes(null)) +
+  geom_density() +
+  xlim(c(-.5, .5)) +
+  labs(title = "Null distribution",
+       x = "Difference between A and B") 
+```
+
+## P-values: Null distribution for an A/B test
+
+```{r echo =F}
+ggplot(data.frame(null=null), aes(null)) +
+  geom_density() +
+  xlim(c(-.5, .5)) +
+  annotate("text", label=".025 Prob", x = -.3, y = 1) +
+  annotate("text", label=".025 Prob", x = .3, y = 1) +
+  annotate("text", label=".95 Prob", x = 0, y = 1) +
+  geom_vline(xintercept = c(quantile(null, probs = .025), quantile(null, probs = .975)), lty = 2) + 
+  labs(title = "Null distribution with critical values",
+       x = "Difference between A and B") 
+```
+
+## P-values: Null distribution for an A/B test
+
+```{r echo =F}
+ggplot(data.frame(null=null), aes(null)) +
+  geom_density() +
+  xlim(c(-.5, .5)) +
+  annotate("text", label=".025 Prob", x = -.3, y = 1) +
+  annotate("text", label=".025 Prob", x = .3, y = 1) +
+  annotate("text", label=".95 Prob", x = 0, y = 1) +
+  geom_vline(xintercept = c(quantile(null, probs = .025), quantile(null, probs = .975)), lty = 2) + 
+  geom_vline(xintercept = -.47, lty = 2, col=2) +
+  annotate("text", label="observed \n difference,\n p < .05", x = -.37, y = 3, col = 2)+
+  labs(title = "Null distribution",
+       x = "Difference between A and B") 
+```
+
+
+## DEMONSTRATION:  Exploring NHST 
+
+- class3script2.R
+
+
+## P-values for regression coefficients
+- In regression we are interested in testing whether $\beta$ = 0.
+- A slope of 0 means:  no effect, no relationship.
+- $H_0$: $\beta$ = 0.
+- Regression software automatically calculates a hypothesis test for $\beta$ = 0 using a t-test based on the t-statistic:
+$$t = \frac{\beta - 0}{SE(\beta)},$$ which follows a Student $t$-distribution with $n - 2$ degrees of freedom.
+- The $t$-statistic measures the departure of an estimated parameter from its null value (0 for regression coefficients).
+- The $t$-distribution is used to test regression coefficients because it is slightly more conservative than a normal distribution at lower n (fatter tailed) and then converges to normal at higher n.
+
+## T distribution vs. Normal distribution
+
+```{r echo= F}
+df <- data.frame(x = rep(seq(-5,5,.01),2),
+                 y = c(dt(seq(-5,5,.01), df = 5), 
+                          dnorm(seq(-5,5,.01), 0,1)))
+
+df$distribution <- c(rep("t-distribution", nrow(df)/2), 
+             rep("normal distribution", nrow(df)/2))
+
+ggplot(df, aes(x,y, col = distribution)) +
+  geom_line() +
+  labs(title = "T(5) compared to N(0,1)",
+       y = "density")
+
+
+```
+
+## T distribution vs. Normal distribution
+
+```{r echo= F}
+df <- data.frame(x = rep(seq(-5,5,.01),2),
+                 y = c(dt(seq(-5,5,.01), df = 50), 
+                          dnorm(seq(-5,5,.01), 0,1)))
+
+df$distribution <- c(rep("t-distribution", nrow(df)/2), 
+             rep("normal distribution", nrow(df)/2))
+
+ggplot(df, aes(x,y, col = distribution)) +
+  geom_line() +
+  labs(title = "T(50) compared to N(0,1)",
+       y = "density")
+
+
+```
+
+## T-test to compare means
+
+- A t-test can also used to assess whether the means of two distributions are different:
+$$
+t = \frac{\bar{x}_1 - \bar{x}_2}{\sqrt{\frac{s_1^2}{n_1} + \frac{s_2^2}{n_2}}}
+$$  
+- $\bar{x}_1$ and $\bar{x}_2$ are the sample means and $s_1^2$ and $s_2^2$ are the sample variances.  
+- a $t$-distribution has one parameter: degrees of freedom.
+- The $t$ statistic for a two-sample test follows a student's $t$ distribution with $n_1 + n_2 - 2$ degrees of freedom.
+- If the $t$ statistic exceeds the critical value then the difference is statistically significant.
+
+## PRACTICE:  Explore the t-test
+
+- class3script2.R
+
+## Problems with NHST and p-values
+- P-values are a function of $n$---the larger the sample size the easier it is to detect very small differences, which may be practically insignificant.
+- In large datasets all coefficients/differences are significant, which makes p-values largely worthless.
+- Conversely, there may be very large and important differences that are not statistically significant simply because the sample size is small.
+- $\alpha$ is arbitrary:  .01?  .05? .1?  
+- If we set $\alpha$ at .05, then what do we do if p = .055? .051? .049? (The ASA has recently cautioned against getting fixated on the magic p < .05 number.)
+- P-values are usually dichotomized (significant/ not significant) but they can't easily be compared in this way: the difference between significant and non-significant p-values is not itself statistically significant!
+
+## CIs and p-values
+- Often CIs can be used in place of (or in addition to) p-values, especially for regression coefficients.
+- For regression, 95% CIs provide the same information as p-values with $\alpha$ of .05. 
+- But they also tell us a little more:
+    + how close the coefficient estimate is to 0.
+    + how wide the interval is (and thus how uncertain the point estimate is).
+    + how large the effect size.
+- If the CI contains 0 then the predictor is not statistically significant. This situation corresponds to p > .05.
+- If the CI does *not* contain 0 then the difference *is* statistically significant. This situation corresponds to p < .05.
+
+## Forest plot for regression coefficients
+
+```{r echo = F}
+data(mtcars) 
+
+m <- lm(mpg ~ ., data=mtcars)
+
+coefplot(m)
+```
+
+## P-values vs. confidence intervals
+- In this course we will emphasize:
+    + **Effect size**: how large is the coefficient? How strong is the relationship between predictor and outcome.
+    + **Confidence Intervals**: How certain are we of the coefficient estimate?
+- CIs often offer a better way to evaluate evidence than p-values.
+- Bottom line:  p-values do not measure the strength of a relationship, but rather the probability that the observed relationship occurred by chance. 
+- In short, CIs encourage more flexible and contextual thinking about data. 
+- Bottom line: don't use p-values mechanically! Think about your data and weigh the evidence.
+
+# Homework
+
+## Homework for next week
+
+- Read chapters 2 and 3 on regression in *Statistical Learning*.
+- Complete Lab 1. **Due** before next class. 
+

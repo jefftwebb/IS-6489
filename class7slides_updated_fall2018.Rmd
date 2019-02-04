@@ -1,0 +1,561 @@
+---
+title: "IS 6489: Statistics and Predictive Analytics"
+subtitle: Class 7
+author: Jeff Webb
+output: 
+  beamer_presentation:
+    theme: "Madrid"
+    #colortheme: "dolphin"
+    fonttheme: "structurebold"
+    incremental:  false
+    fig_width: 7
+    fig_height: 6
+    fig_caption:  false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, results='asis', cache=T, warning=F, message = F)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(arm)
+library(car)
+library(ISLR)
+data(Hitters)
+h <- Hitters
+d <- read.csv("day.csv")
+
+
+```
+
+## Outline of class tonight
+
+- Interim report discussion
+- Review: 
+    + overfitting and the bias variance trade-off
+    + cross-validation
+    + missing data imputation
+    + model selection
+- Regularization (changed the order of this topic because of its relevance to the final project; discussed in *Statistical Learning* 6.2)
+- Introduce logistic regression
+
+# Interim Report
+
+## Interim report:  5 variable model
+- Problems/issues with the model or submission to Kaggle?
+- $R^2$?
+- Next steps?  
+    + Make sure that your treatment of NAs is correct.
+    + Include more variables than just 5.
+    + Combine or create variables.  Most of your predictive gains  are likely to come more through *feature engineering* than method selection.
+    + Identify zero variance or near zero variance variables for elimination.
+    + There are many categorical ordered variables (e.g., KitchenQual).  Converting these to ordinal variables produces a more compact representation.  Does it improve performance?
+
+# Review 
+
+## Bias-variance tradeoff
+
+- A central idea in supervised learning.
+- Flexible models (think KNN regression with small k) have low bias---they fit the training dataset well---but they can *overfit*, in which case they do not generalize well to new data.
+- If a model changes with different training data we would say it is high variance. 
+- A less flexible model like linear regression (without interaction or polynomial terms) will have higher bias, and could *underfit* the data, but will typically generalize well to new data.
+- Although both low bias and low variance are both good things **no one model can achieve both**: we must balance the trade-off by choosing a model with higher bias in order to have lower variance.
+
+## Cross-validation (CV)
+
+- The problem in prediction is that we don't know how our model performs because we are **predicting**: the outcome has not yet occurred.
+- CV is a method for using what we have---our sample data---to estimate what we don't have---the model's performance with new data.
+- We can do CV with a simple 70/30 data split whereby we train the model on 70% of the sample and then test it on the remaining 30%, comparing the predicted outcome with the actual outcome.  
+- The test set performance is our CV estimate of the model's predictive performance. 
+- We can generalize this 70/30 split method with k-fold CV by splitting the data into k folds and iteratively training on k-1 folds and testing on the holdout fold.  
+- We average the k performance metrics to obtain our estimate of the model's predictive performance.
+- The caret package runs CV automatically and prints it automatically to the screen.
+
+## Missing data imputation
+
+- It makes sense to impute when there is structure to the missings (MAR).
+- On Kaggle you will see reference to multiple imputation (and packages like Amelia and MICE). This is misleading.  We can use only single imputation when doing prediction.
+- We saw that caret package does single imputation nicely for numeric variables, while missForest package will do imputation for categorical and numeric variables.
+- missForest treats imputation as a prediction problem---as if the missings were the outcome variable in a test set.
+- The function builds a multivariable random forest model using the non-missing data in order to predict---or impute---the missings in each column. 
+- missForest builds a separate model to predict for each column with missing data.
+- Impute only after cleaning!
+
+## Review:  imputation with missForest and caret
+
+- class7script.R
+
+## Model selection
+
+- Model selection is a real problem in machine learning and predictive analytics (less so for inference).
+- Univariate correlations do not help identify the strongest predictors in a multivariable context.
+- As noted in class, however, there are problems with the model selection algorithms that attempt to evaluate predictors in the context of multiple variables:
+
+    + tedious or impossible to do by hand
+    + computationally expensive even for automatic algorithms when the model space is large
+    + can give different answers depending on the order in which predictors are entered.
+- There are better ways.   
+
+# Regularization
+
+## Regularization 
+- Variable selection using AIC is a discrete process: a variable is either in or out of the model. 
+- Regularization **shrinks**  regression coefficients and thus achieves the same objective as variable selection but in a continuous manner. 
+- Regularization  works well when there are large numbers of predictors. (With just a small number of predictors these models will actually do worse than OLS regression.) 
+- **Ridge regression** shrinks coefficients towards zero and each other.
+- **Lasso** does the same but will shrink some coefficients all the way to  zero, effectively taking them out of the model.
+- Why shrink coefficients?
+- Large coefficients tend to be artifacts of chance---we got this sample rather than another one. (The world is a complex place; it does not abound in strong relationships.)
+- **Shrinking large coefficients will generally produce a model that does better with new data.**
+
+
+## Fitting the models in caret
+- Pretty simple .... 
+- train(y $\sim$., data = data, preProcess=c("center","scale"), method="ridge") 
+- train(y$\sim$., data = data, preProcess=c("center","scale"), method="lasso")
+- train(y$\sim$., data = data, preProcess=c("center","scale"), method="glmnet")
+- glmnet is a combination of ridge and lasso. 
+- Note:  you need to center and scale variables to use these methods.
+- caret has been optimized for prediction, so it is not always easy to get  coefficients out of the model objects produced by the train function.
+
+
+## OLS regression
+- Remember:  
+    + $y_i = \beta_0 + \beta_1x_{i1} ... \beta_jx_{ij} + \epsilon$
+    + $\hat{y}_i = \beta_0 + \beta_1x_{i1} ... \beta_jx_{ij}$
+    + RSS = $\sum_{i=1}^N(y_i - \hat{y}_i)^2$
+- So, $$RSS = \frac{1}{N} \sum_{i=1}^N(y_i - \hat{y}_i)^2 = \frac{1}{N} \sum_{i=1}^N(y_i - \sum_{j=1}^p \beta_j x_{ij})^2$$
+- Hence, with some re-arrangement: $$RSS =\frac{1}{N} \sum_{i=1}^N (y_i - \beta_0 - \sum_{j=1}^p \beta_j x_{ij} )^2$$.
+
+
+## Ridge regression
+- Ridge regression shrinks  regression coefficients towards each other and towards zero by constraining their size.
+- The model uses the OLS residual sum of squares (RSS) with a **shrinkage penalty**: \pause
+
+$$\min_{ \beta_0, \beta_j }\left\{  \frac{1}{N} \sum_{i=1}^N (y_i - \beta_0 - \sum_{j=1}^p \beta_j x_{ij} )^2 + \lambda \sum_{j=1}^p \beta{_j^2} \right\} =$$ \pause
+$$\min_{ \beta_0, \beta_j }\left\{RSS + \lambda \sum_{j=1}^p \beta{_j^2} \right\}$$
+
+where $\lambda \geq 0$ is a tuning parameter.
+
+- Here we are solving the least squares problem, subject to the penalty, which will always find smaller $\beta_0$ and $\beta_j$.  (An example of this later.)
+
+
+## Regularization and the bias-variance trade-off
+
+- With regularization we are not picking the $\beta_j$s that minimize RSS, as in linear regression.
+- Instead, the shrinkage penalty ensures that we pick a **worse** model in-sample so as to have a **better** model out-of-sample.
+- We accept higher bias in order to lower the variance.
+
+
+
+## Shrinkage example
+
+```{r, echo=F}
+
+x <- c(1,2,3,4)
+y <- c(1,4,3,8)
+plot(x,y, main="OLS line, slope = 2")
+abline(lm(y~x))
+
+```
+
+## Shrinkage example
+
+```{r, echo=F, results='asis'}
+
+tab <- data.frame(slope = seq(1.75,2.25,.05), rss=0, rss2=0, rss3=0)
+for(i in 1:nrow(tab)){tab[i,2] <- round(sum((-1 + tab$slope[i]*x - y)^2),2)}
+for(i in 1:nrow(tab)){tab[i,3] <- round(sum((-1 + tab$slope[i]*x - y)^2) + tab$slope[i]^2,2)}
+for(i in 1:nrow(tab)){tab[i,4] <- round(sum((-1 + tab$slope[i]*x - y)^2) + 2*(tab$slope[i]^2),2)}
+
+names(tab)[2] <- "OLS RSS"
+names(tab)[3] <-  "Ridge RSS (lambda = 1)"
+names(tab)[4] <-  "Ridge RSS (lambda = 2)"
+
+kable(tab[,c(1,2)])
+```
+
+## Shrinkage example
+
+```{r, echo=F, results='asis'}
+
+kable(tab[,c(1,2,3)])
+```
+
+## Shrinkage example 
+
+```{r, echo=F, results='asis'}
+
+kable(tab[,c(1,2,3,4)])
+```
+
+
+## Shrinkage example
+
+```{r, echo = F}
+plot(x,y, main="OLS estimate = 2. Ridge estimates = 1.85 - 1.95")
+abline(lm(y~x))
+
+z <- -1 + 1.95*x
+zz <- -1 + 1.9*x
+zzz <- -1 + 1.85*x
+
+lines(y=z, x=x, col=2)
+lines(y=zz, x=x, col=3)
+lines(y=zzz, x=x, col=4)
+```
+
+## How does the shrinkage penalty work exactly?
+
+$$\min_{ \beta_0, \beta_j }\left\{RSS + \lambda \sum_{j=1}^p \beta{_j^2} \right\}$$
+
+- The formula is saying: subject to a certain size constraint on the sum of squared  $\beta$s, minimize the regression RSS.
+- The  penalty gets smaller when the $\beta_j$s are closer to zero, and so it has less effect when the $\beta_j$s are small (close to 0), and more effect when the $\beta_j$s are large.
+- The tuning parameter $\lambda$ controls the impact of the shrinkage penalty on the regression coefficient estimates, diminishing or magnifying it.
+- When $\lambda = 0$, the penalty term has no effect, and ridge regression equals OLS.
+- When $\lambda$ gets large, the impact of the shrinkage penalty grows, which forces the ridge regression coefficient estimates to zero.
+
+## Picking optimal $\lambda$
+
+- Ridge regression will produce different sets of coefficient estimates, one set for each value of $\lambda$.
+- Selecting a good value for $\lambda$ is critical!
+- We select $\lambda$  using cross-validation, by testing different values for $\lambda$ and choosing the one that produces the model with the lowest out-of-sample error.
+
+
+## Illustration: Ridge coefficients corresponding to different $\lambda$
+![](ridge.jpg)
+
+
+
+<!-- # Another way to think about ridge regression -->
+<!-- - The model uses the OLS residual sum of squares (RSS), \pause -->
+<!-- $$RSS =\frac{1}{N} \sum_{i=1}^N (y_i - \beta_0 - \sum_{j=1}^p \beta_j x_{ij} )^2$$ \pause -->
+<!-- $$\text{ subject to } \sum_{j=1}^p ||\beta_j||_2 \leq t$$. \pause -->
+<!-- - $||\beta_j||_2$ is the $L_2$ or Euclidean norm:  $\left\| \boldsymbol{x} \right\|_2 := \sqrt{x_1^2 + \cdots + x_n^2}$ -->
+<!-- - This formula is saying: subject to a constraint, $t$, on the size of the square root of the squared and summed $\beta$ coefficients,  minimize the regression RSS. -->
+<!-- - The constraint is like a budget that ensures the $\beta$ coefficients never get larger than a certain size. -->
+<!-- - We pick the optimal $t$ through cross validation---which value of $t$ minimizes estimated out-of-sample penalized error? -->
+
+
+## Lasso regression
+- Lasso regression also shrinks  regression coefficients by constraining their size, but uses *absolute value* of $\beta_j$ in the penalty term, rather than squared $\beta_j$.
+- In technical terms:  Lasso uses the $L_1$ norm instead of the $L_2$ norm.
+- The $L_1$ norm is just the absolute value of the summed $\beta_j$s rather than the squares.  \pause
+$$\min_{ \beta_0, \beta_j }\left\{  \frac{1}{N} \sum_{i=1}^N (y_i - \beta_0 - \sum_{j=1}^p \beta_j x_{ij} )^2 + \lambda \sum_{j=1}^p |\beta{_j}|_1 \right\} =$$ \pause
+$$\min_{ \beta_0, \beta_j }\left\{RSS + \lambda \sum_{j=1}^p|\beta{_j|_1} \right\}$$
+where $\lambda \geq 0$ is again a tuning parameter.
+
+## Lasso regression
+- The difference between the $L_2$ norm and the $L_1$ norm may seem trivial but it accounts for the fact that Lasso does not just shrink coefficients towards zero but actually sets some coefficients at zero.
+- The formula, $\min_{ \beta_0, \beta_j }\left\{RSS + \lambda \sum_{j=1}^p|\beta{_j|_1} \right\}$, is saying: subject to a certain size constraint on the summed absolute value of the $\beta$s), minimize the regression RSS.
+- Again, we pick the optimal $\lambda$ through cross validation estimates of the model's out-of-sample performance.
+- Setting some coefficients to 0 makes models with many predictors more interpretable.
+- Lasso is essentially a method for automatic variable selection.
+
+
+## Lasso coefficients corresponding to different $\lambda$
+![](lasso.jpg)
+
+## An equivalent way of formulating Lasso regularization
+- The model minimizes the OLS residual sum of squares (RSS), \pause
+$$RSS =\frac{1}{N} \sum_{i=1}^N (y_i - \beta_0 - \sum_{j=1}^p \beta_j x_{ij} )^2$$ \pause
+$$\text{ subject to } \sum_{j=1}^p |\beta_j|_1 \leq t$$. \pause
+- Here $|\beta_j|_1$ is the $L_1$ norm:  $| \boldsymbol{x} |_1 := |x_1| + \cdots + |x_n|$
+- This formula is saying: subject to a certain size constraint, $t$, or budget, on the summed absolute value of the $\beta$s, minimize the regression RSS.
+- We could describe ridge regression in the same way if we used the $L_2$ norm instead.
+
+## Lasso constraint
+- Say, for example, that the budget, $s$, for the coefficients is 1.  
+- Lasso constraint:  $|\beta_1|$ + $|\beta_2|$ <= 1
+- Examples: 
+    + $|1| + |0| = 1$
+    + $|.5| + |.5| = 1$
+    + $|0| + |1| = 1$
+- The shape of the lasso constraint is a **square**.
+
+## Lasso constraint
+
+```{r echo = F}
+df <- data.frame(x = seq(-2, 2, .5),
+                 y = seq(-2, 2, .5))
+
+ggplot() +
+  theme_minimal() +
+  geom_segment(aes(x=0, y=1, xend=1, yend=0)) +
+  geom_segment(aes(x=0, y=-1, xend=-1, yend=0) )+
+  geom_segment(aes(x=-1, y=0, xend=0, yend=1)) +
+  geom_segment(aes(x=0, y=-1, xend=1, yend=0)) +
+  geom_segment(aes(x=0, y=-1, xend=0, yend=1), lty = 3) +
+  geom_segment(aes(x=-1, y=0, xend=1, yend=0), lty = 3 )+
+  geom_segment(aes(x=0, y=.5, xend=.5, yend=.5), lty = 2, col = 2) +
+  geom_segment(aes(x=.5, y=.5, xend=.5, yend=.0), lty = 2, col = 2) + 
+  labs(title = "Lasso constraint",
+       x = expression(beta[1]),
+       y = expression(beta[0])) +
+  ylim(c(-1.5,1.5))+
+  xlim(c(-1.5,1.5)) + 
+  annotate("text", label = "(.5, .5)", x= .55, y =.7) +
+  annotate("text", label = "(0, 1)", x= 0, y =1.1)+
+  annotate("text", label = "(1, 0)", x= 1.1, y =0)
+
+```
+
+
+
+## Ridge constraint
+- Ridge constraint:  $\beta_1{^2}$ + $\beta_2{^2}$
+- Examples: 
+    + $1^2 + 0 = 1$
+    + $.71^2 + .71^2 = .5 + .5 = 1$
+    + $0 + 1^2 = 1$
+- The shape of the ridge constraint is a **circle** ($x^2 + y^2 = r^2$).
+
+
+## Ridge constraint
+
+```{r echo = F}
+
+library(ggforce)
+
+
+ggplot() + 
+  geom_circle(aes(x0=0, y0=0, r=1)) +
+   labs(title = "Ridge constraint",
+       x = expression(beta[1]),
+       y = expression(beta[0])) +
+   geom_segment(aes(x=0, y=.71, xend=.71, yend=.71), lty = 2, col = 2) +
+  geom_segment(aes(x=.71, y=.71, xend=.71, yend=0), lty = 2, col = 2) + 
+  geom_segment(aes(x=0, y=-1, xend=0, yend=1), lty = 3) +
+  geom_segment(aes(x=-1, y=0, xend=1, yend=0), lty = 3 )+
+  theme_minimal() +
+  ylim(c(-1.5,1.5))+
+  xlim(c(-1.5,1.5)) + 
+  annotate("text", label = "(.71, .71)", x= .9, y =.8) +
+  annotate("text", label = "(0, 1)", x= 0, y =1.1)+
+  annotate("text", label = "(1, 0)", x= 1.1, y =0)
+
+```
+
+## Lasso vs. Ridge
+
+The possible values for $\hat\beta$ will touch the corners of the square---will equal 0---in the case of Lasso.  But for ridge the constraint will always intersect the possibilities for $\hat\beta$  at some non-zero x or y point.
+
+
+![](reg.png)
+
+## DEMONSTRATION:  Fit regularized models with the caret package 
+
+class7script.R
+
+# Logistic Regression
+
+## Classification
+- Until now our outcome variable has been continuous. 
+- If the outcome variable is binary (0/1, No/Yes) then we are faced with a **classification** problem.
+- The goal in classification is to create a model capable of **classifying** new observations into one of two categories. 
+- KNN, with which we're already familiar, will do classification: in caret use the same syntax as for a continuous outcome.
+- Logistic regression is the most common parametric method for classification.
+- As was the case with linear regression, logistic regression can have two goals:  prediction and description.
+
+## Logistic regression: the model
+- For binary outcomes we model the **probability** that $y$ = 1.
+- But the linear predictor, $X_i\beta$, is on the $(-\infty, +\infty)$ not the (0,1) scale of probability.
+- This scale difference requires transforming the outcome variable into log odds using the logit function:  $\text{logit}(x) = \text{log}\left( \frac{x}{1-x} \right)$.
+- The logit function maps the range of the outcome (0,1) to the range of the linear predictor  $(-\infty, +\infty)$.
+- Here is the logistic regression model written in terms of log odds: $$\text{Pr}(y_i = 1) = p_i$$ $$\text{logit}(p_i) =  X_i\beta$$ 
+- Log odds do not have a meaningful interpretation (other than sign and magnitude) and must be transformed, either into **probabilities**, using the inverse logit, or into **odds ratios**, by exponentiating.
+
+## The inverse logit function
+- The logistic model can be written, alternatively, using the inverse logit:  
+$$\operatorname{Pr}(y_i = 1 | X_i) = \operatorname{logit}^{-1}(X_i \beta)$$ where $y_i$ is a binary response, $\operatorname{logit}^{-1}$ is the inverse logit function, and $X_i \beta$ is the linear predictor.
+- In English:  the probability that y = 1 is equal to the inverse logit of the linear predictor $(X_i, \beta)$, where X represents all of the predictors in the model.
+- What is the inverse logit? 
+$$\operatorname{logit}^{-1}(x) = \frac{e^{x}}{1 + e^{x}} $$
+- The inverse logit function transforms continuous values of the linear predictor, $X_i \beta$, to the range (0, 1), which is necessary since probabilities---the fitted values in a logistic regression---must be between 0 and 1.
+
+
+
+
+## Plot of the inverse logit function
+```{r echo=F}
+x <- seq(-6, 6, .01)
+y <- exp(x)/(1 + exp(x))
+plot(x,y, type="l", main=expression(paste("y = ", logit^-1,"(x)")), ylab=expression(paste("y = ", logit^-1,"(x)")))
+```
+
+## Interpreting results from a logistic regression using inverse logit
+- The inverse logit function is curved, so the expected difference in $y$ corresponding to a fixed difference in $x$ is not constant.
+- By  contrast, in  linear regression  the expected difference in $y$ corresponding to a fixed difference in $x$ **is**  constant.
+- **When we interpret logistic results we must choose where on the curve we want to evaluate the probability of the outcome, given the model.**
+
+## Logistic regression example: simulated data on credit card default from ISLR package. 
+```{r echo=F, results='markup'}
+library(ISLR)
+data(Default)
+d <- Default
+str(d)
+```
+
+<!-- ## Explore Default  -->
+
+<!-- ```{r echo=F} -->
+<!-- d$default_bin <- ifelse(d$default=="No", 0, 1) -->
+<!-- library(ggplot2) -->
+<!-- ggplot(d, aes(x=balance, y=income, col=default)) + -->
+<!--   geom_point(alpha=.4) +ggtitle("Balance vs. Income by Default") -->
+<!-- ``` -->
+
+<!-- ## Explore Default dataset: balance variable  -->
+<!-- ```{r echo=F} -->
+<!-- library(arm) -->
+<!-- d$default_bin <- ifelse(d$default=="No", 0, 1) -->
+<!-- ggplot(d, aes(default, balance)) +  -->
+<!--   geom_boxplot()+ -->
+<!--   ggtitle("Balance by Default") +  -->
+<!--   ylab("balance") -->
+<!-- ``` -->
+
+
+<!-- ## Explore Default dataset: income variable -->
+<!-- ```{r echo=F} -->
+<!-- ggplot(d, aes(default, income)) +  -->
+<!--   geom_boxplot()+ -->
+<!--   ggtitle("Income by Default") + -->
+<!--    ylab("income") -->
+<!-- ``` -->
+
+## Logistic regression: default ~ balance
+```{r echo=F}
+library(broom)
+logistic_model <- glm(default ~ balance, 
+                      data = d, family = binomial)
+
+logistic_model %>% tidy  %>%kable(digits = 2)
+
+```
+
+- Increasing balance by 1 unit is associated with a change of .01 in the **log odds** of default.
+- Increasing balance by 1 unit is associated with a change of ? in the **probability** of default.
+
+## Interpreting results from a logistic regression using inverse logit
+```{r results='markup'}
+summary(d$balance)
+
+ invlogit <- function(x) exp(x)/(1 + exp(x))
+
+ invlogit(-10.65 + .01 * 835.4)
+```
+
+- The probability of default for those with an average credit card balance of 835.4 is `r round(invlogit(-10.65 + .01 * 835.4),2)`.
+
+
+## Using the logistic model to evaluate how changes to a predictor impact the probability of the outcome
+- In linear regression, the slope of the regression line (represented by the $\beta$ coefficient) defines the relationship between a predictor, $x$, and the outcome, $y$.
+- The relationship is linear.
+- If we increase $x$ by one unit, $y$ increases by $\beta$.
+- We use the same logic to evaluate the relationship between $x$ and $y$ in logistic regression, with one difference:
+- The relationship between $x$ and $y$ is non-linear.
+
+## Using the logistic model to evaluate how changes to a predictor impacts the probability of the outcome
+```{r results='markup'}
+ #Increase balance by 1 unit (i.e., $1):
+invlogit(-10.65 + .01 * 835)
+invlogit(-10.65 + .01 * 836)
+
+```
+- Increasing credit card balance by 1 dollar increases the probability of default from `r round(invlogit(-10.65 + .01 * 835),3)` to `r round(invlogit(-10.65 + .01 * 836),3)`.
+
+## Using the logistic model to evaluate how changes to a predictor impact the probability of the outcome
+```{r results='markup'}
+ #The effect of a $100 increase in balance from the mean
+invlogit(-10.65 + .01 * 835) 
+invlogit(-10.65 + .01 * 935)
+
+```
+- Increasing credit card balance by 100 dollars increases the probability of default from `r round(invlogit(-10.65 + .01 * 835),2)` to `r round(invlogit(-10.65 + .01 * 935),2)`.
+- The probability of default increases by `r round(invlogit(-10.65 + .01 * 935) - invlogit(-10.65 + .01 * 835),2)`.
+
+
+## Remember:  the impacts are not linear!
+```{r results='markup'}
+invlogit(-10.65 + .01 * 300) - invlogit(-10.65 + .01 * 200)
+invlogit(-10.65 + .01 * 900) - invlogit(-10.65 + .01 * 800)
+invlogit(-10.65 + .01 * 2000) - invlogit(-10.65 + .01 * 1900)
+```
+
+## Adding predictors
+- What is the probability of default for those with average balance and average income?
+- How does the probability of default change for those with  average income when balance is increased by 100 dollars? \pause
+
+```{r results='markup'}
+full_model <- glm(default ~ balance + income,
+                  data = d, family = binomial)
+
+round(coef(full_model),4)
+
+```
+
+
+## Adding predictors
+
+```{r results='markup'}
+summary(d$income)
+
+invlogit(-11.54 + .0056 * 835 + 0 * 33520)
+invlogit(-11.54 + .0056 * 935 + 0 * 33520)
+
+```
+- The probability of default increases by `r round(invlogit(-11.54 + .0056 * 935) - invlogit(-11.54 + .0056 * 835),3)`.
+
+## Predicted probabilities for default = invlogit(-10.65 + .0056(balance)) 
+```{r echo=F}
+ x <- seq(min(d$balance), max(d$balance), 10)
+ y <- invlogit(-10.65 + .0056*x)
+ plot(x,y, type="l", main=expression(paste("y = ", logit^-1,"(-10.65 + .01*balance)")), ylab=expression(paste("y = ", logit^-1,"(-10.65 + .0056*balance)")), xlab = "balance")
+```
+
+## Linear vs. logistic model
+```{r, echo=F}
+d$default_bin <-ifelse(d$default=="Yes", 1,0)
+ plot(d$balance, d$default_bin, pch=20, main="default ~ balance \n linear vs. logistic model", xlab="balance", ylab="default")
+ abline(lm(default_bin~balance, data=d), col=2)
+ lines(x,y, type="l", col=2)
+```
+
+## Errors from this linear probability model
+```{r echo=F}
+`linear model` <- lm(default_bin~balance, data=d)
+hist(residuals(`linear model`))
+```
+
+These errors are not normally distributed! 
+
+## Interpreting results from a logistic regression using the odds ratio (OR)
+- Another way to interpret logistic regression coefficients is in terms of the *odds ratio* (OR).
+- If two outcomes have the probabilities $(p, 1-p)$, then $\frac{p}{1-p}$ is known as the *odds*.
+- An odds of 1 is equivalent to a probability of .5---that is, equally likely outcomes for $p$ and $1-p$.
+- The ratio of two odds or  OR is: $$\frac{\frac{p_1}{1-p_1}}{\frac{p_2}{1-p_2}}$$.
+- Exponentiated logistic regression coefficients can be interpreted as ORs. 
+<!-- $$\text{log} \left(\frac{\text{Pr}(y = 1| x)}{\text{Pr}(y = 0| x)}\right) = \alpha + \beta_x$$ -->
+<!-- - Adding 1 to $x$ has the effect of adding $\beta$ to both sides of the above equation. -->
+<!-- - Exponentiating both sides, the odds are then multiplied by $e^{\beta}$. -->
+- If $\beta$ = .2, then OR = $e^{.2} = 1.22$ indicating 22% greater odds of   $y | x + 1$ vs.  $y | x$ .
+
+## Interpreting results from a logistic regression using the odds ratio (OR)
+```{r echo=F}
+logistic_model %>% tidy  %>%kable(digits = 2)
+```
+
+- Odds ratio:  $e^{.01}$ = `r exp(.01)`.
+- Thus, with an increase of 1 unit in balance, the chance of default increases by 1%.
+- ORs are somewhat involved and difficult to understand.
+- It is more straightforward to interpret and explain logistic regression coefficients on the scale of the original data, as probabilities.
+
+##  PRACTICE: Logistic regression
+
+- class7script.R
+
+## Homework
+
+- Review *Statistical Inference* 3 (logistic regression) and read 6.2 (regularization).
+- Lab 5

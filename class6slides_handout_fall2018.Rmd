@@ -1,0 +1,734 @@
+---
+title: "Class 6: Statistics and Predictive Analytics"
+author: "Jeff Webb"
+output: 
+  beamer_presentation:
+    theme: "Madrid"
+    #colortheme: "dolphin"
+    fonttheme: "structurebold"
+    incremental:  false
+    fig_width: 7
+    fig_height: 6
+    fig_caption:  false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T,  cache=F, warning = F, message = F)
+library(arm)
+library(tidyverse)
+library(caret)
+h <-  read.csv("http:// andrewpbray.github.io/data/LA.csv")
+d <- read.csv("day.csv")
+```
+
+
+## Outline of class tonight
+- Interim report (due April 3)
+- Review: transformations, interactions
+- Regression assumptions and other issues
+- Bias/variance trade-off (overfitting)
+- Cross-validation
+- Missing data imputation
+- Homework
+
+# Interim report:  Questions?
+
+# Review
+
+## Variable transformations to improve model fit
+
+- The number of *possible* transformations/interactions is large. It is not feasible to test all them so we need some *rules of thumb*.
+
+1. Consider **log transformation** for price data or for variables that are very skewed or have large ranges. Usually you only have to transform the outcome variable.
+2. Consider **polynomial transformation** of a predictor if you notice that its bivariate relationship with the outcome is non-linear. 
+3. Consider **interactions** between predictors with large main effects, or when domain knowledge indicates that the effect of one predictor will depend on the the level of another.
+- Residual plots are the best way of getting information about how your model is fitting, and whether you need to consider any (further) variable transformations.
+
+## Example of a log scale: Richter scale for earthquakes
+
+<!-- - we use log scale to improve interpretatiblituy and model fit -->
+<!-- - a log scale puts changes on a percentage scale and therefore makes it easier to compare changes on when the range of x is large and the values of y are very different. -->
+<!-- - models with skewed variables often have an improved linear fit after transformation. -->
+
+![](richter.jpg)
+
+Each richter magnitude is 10 times larger than the previous level.  
+
+## Dow Jones Industrial Average on the arithmetic scale 
+
+
+![](dow_nolog.png)
+<!-- The range of the y-axis makes it difficult to compare modern era and historical stock prices.  -->
+
+<!-- The increase from 100 to 1000 is dwarfed by later changes such as 1000 to 10,000, even though they are the same percentage-wise. -->
+
+## Dow Jones Industrial Average log scale
+
+
+![](dow_log.png)
+
+<!-- Log scale stock prices are interpretable as percentage changes, making prices comparable across the years.  -->
+
+
+## When should we log transform?
+
+
+```{r echo = F}
+nolog <- lm(price ~ sqft , h) 
+
+library(grid)
+library(gridExtra)
+
+
+p1 <- ggplot(h, aes(sqft, price)) +
+  geom_point() +
+  labs(title="Square feet vs. price in LA") +
+  stat_smooth(method="lm", se=F, col=2, lty=2) +
+  theme_minimal()
+
+df <- data.frame(fitted = predict(nolog), residuals = h$price[as.numeric(names(predict(nolog)))]- predict(nolog))
+
+#plot(nolog, which = 1)
+
+p2 <- ggplot(df, aes(fitted, residuals)) +
+  geom_point() +
+  labs(title="Residual plot") +
+  geom_hline(yintercept = 0, lty=2, col = 2)+
+  theme_minimal()
+
+grid.arrange(p1,p2, ncol=2)
+
+```
+
+
+## When should we log transform?
+
+
+```{r echo = F}
+log_price <- lm(log(price) ~ sqft , h) 
+
+p1 <- ggplot(h, aes(sqft, log(price))) +
+  geom_point() +
+  labs(title="Square feet vs. log(price) in LA") +
+  stat_smooth(method="lm", se=F, col=2, lty=2) +
+  theme_minimal()
+
+df <- data.frame(fitted = predict(log_price), residuals =    log(h$price[as.numeric(names(predict(log_price)))]) -
+                   predict(log_price))
+
+p2 <- ggplot(df, aes(fitted, residuals)) +
+  geom_point() +
+  labs(title="Residual plot") +
+  geom_hline(yintercept = 0, lty=2, col = 2)+
+  theme_minimal()
+
+grid.arrange(p1,p2, ncol=2)
+
+
+
+```
+
+## When should we log transform?
+
+
+```{r echo = F}
+log_mod <- lm(log(price) ~ log(sqft) , h) 
+
+p1 <- ggplot(h, aes(log(sqft), log(price))) +
+  geom_point() +
+  labs(title="log(square feet) vs. log(price) in LA") +
+  stat_smooth(method="lm", se=F, col=2, lty=2) +
+  theme_minimal()
+
+df <- data.frame(fitted = predict(log_mod), residuals =   predict(log_mod)- log(h$price[as.numeric(names(predict(log_mod)))]))
+
+p2 <- ggplot(df, aes(fitted, residuals)) +
+  geom_point() +
+  labs(title="Residual plot") +
+  geom_hline(yintercept = 0, lty=2, col = 2)+
+  theme_minimal()
+
+grid.arrange(p1,p2, ncol=2)
+
+
+
+```
+
+## Interpreting models with log transformed variables
+
+```{r echo = F}
+display(lm(log(price) ~ log(sqft) * 
+             city +
+             bed +
+             bath,
+           data = subset(h, city != "Beverly Hills" & type=="SFR"))) 
+
+```
+
+- Center inputs to interpret models with interactions!
+
+<!-- ## Interpreting models with log transformed variables (for reference) -->
+<!-- - (Intercept) 4.58: geometric mean of log price when all the variables are 0 or at their reference level. To put this quantity back on the scale of the outcome we exponentiate:  $e^{4.58}$ = `r exp(4.58)`.  The intercept is not interpretable because bed and bath will never = 0. -->
+<!-- - log(sqft) 1.17. Average predicted change in log(price) associated with a 1-unit increase in log(sqft) in LB.  Or, 1.17% is the expected percentage change  in price associated with a 1% increase in sqft in LB.  Because log(sqft) in involved in an interaction, the interpretation of the main effect depends on city. -->
+<!-- - citySanta Monica 3.87: Average predicted change in log(price) over LB among homes with 0 log(sqrft). Not interpretable. -->
+<!-- - cityWestwood 4.17: Average predicted change in log(price) over LB among homes with 0 log(sqrft). Not interpretable.     -->
+<!-- - bed -0.10: Average predicted change in log(price) associated with an addition of 1 bedroom, or, after exponentiating, the percentage change in price:  $e^{-.1}$ = `r 1- exp(-.1)`. -->
+<!-- - bath 0.09: Average predicted change in log(price) associated with an addition of 1 bathroom, or, after exponentiating, the percentage change in price:  $e^{.09}$ = `r exp(.09)`. -->
+<!-- log(sqft):citySanta Monica -0.39: The change in slope  of log(sqft)  for SM compared to LB.  -->
+<!-- log(sqft):cityWestwood -0.45: The change in slope  of log(sqft)  for WW compared to LB.  -->
+
+
+## Interpreting models with log transformed variables and interactions (centered and scaled inputs)
+
+```{r echo = F}
+new <- subset(h, city != "Beverly Hills" & type=="SFR")
+display(lm(log(price) ~ rescale(log(sqft)) * 
+             city +
+             rescale(bed) +
+             rescale(bath),
+           data = new))
+
+```
+
+## For reference: interpreting models with log transformed variables and interactions (centered and scaled inputs)
+
+- (Intercept) 13.01: geometric mean of log price when all the variables are average or at their reference level. To put this quantity back on the scale of the outcome we exponentiate:  $e^{13.01}$ = $446860.
+- log(sqft) 1.15. Average predicted change in log(price) associated with a 1-unit increase in log(sqft) in LB.  Or, 1.15% is the expected percentage change  in price associated with a 1% increase in sqft in LB.  Because log(sqft) in involved in an interaction, the interpretation of the main effect depends on city.
+- citySanta Monica 1: Average predicted change in log(price) over LB among homes with average log(sqft).
+- cityWestwood .84: Average predicted change in log(price) over LB among homes with average log(sqft).
+
+## For reference: interpreting models with log transformed variables and interactions (centered and scaled inputs), cont'd.
+- bed -0.20: Average predicted change in log(price) associated with an addition of 1 unit of bedroom , or, after exponentiating, the percentage change in price:  $e^{-.2}$ = `r round(exp(-.2)-1,2)`.
+- bath 0.2: Average predicted change in log(price) associated with an addition of 1 unit of bathroom, or, after exponentiating, the percentage change in price:  $e^{.2}$ = `r round(exp(.2)-1,2)`.
+- log(sqft):citySanta Monica -0.38: The change in slope  of log(sqft)  for SM compared to LB.
+- log(sqft):cityWestwood -0.44: The change in slope  of log(sqft)  for WW compared to LB.
+
+## Plot interactions!
+
+```{r echo = F}
+
+ggplot(subset(h, city != "Beverly Hills" & type=="SFR"), aes(log(sqft), log(price), col = city)) +
+  geom_point() +
+  stat_smooth(method= "lm", se = F) +
+  labs(title = "Log price ~ log sqft, varying by city") +
+  theme_minimal()
+
+```
+
+## Canvas quiz
+
+```{r echo = F}
+library(broom)
+tidy(lm(log(price) ~ rescale(log(sqft)) * 
+             city,
+           data = new))[,1:2] %>% 
+  mutate(estimate = round(estimate, 2))
+
+```
+
+What is the correct interpretation of the intercept in this model?
+
+1. Average home price
+2. Average log home price
+3. Average log prices of homes in LB with average log square footage
+4. Geometric mean of home prices in Long Beach
+5. $e^{13.01}$ is the geometric mean of $ prices in LB among homes with average log square feet
+
+
+## Canvas quiz
+
+```{r echo = F}
+library(broom)
+tidy(lm(log(price) ~ rescale(log(sqft)) * 
+             city,
+           data = new))[,1:2] %>% 
+  mutate(estimate = round(estimate, 2))
+
+```
+
+What is the correct interpretation for the coefficient for sqft? 
+
+1. 1.17 is the change in log price when log(sqft) goes up by 1 unit.
+2. This is not interpretable
+3. 1.17 is the change in log price when log(sqft) goes up by 1 unit for homes in SM.
+4. exp(1.17) = 3.22, so house prices in LB go up by 222% for every unit increase in sqft.
+5. Change in log price when log(sqft) goes up by 2 sd for LB homes.
+
+## Canvas quiz
+
+```{r echo = F}
+library(broom)
+tidy(lm(log(price) ~ rescale(log(sqft)) * 
+             city,
+           data = new))[,1:2] %>% 
+  mutate(estimate = round(estimate, 2))
+
+```
+
+What is the average $ price of an average home in Santa Monica?
+
+1. 13.01 - 2 * .01 is the average $ price.
+2. 13.01
+3. $e^{13.01}$
+4. 13.01 + 1.02 -.37
+5. $e^{13.01 + 1.02 -.37}$ is the average price.
+
+
+# Fitting non-linear data with a linear model
+
+## Using a linear model with interaction term to fit non-linear data
+
+```{r echo = F}
+d$temp2 <- fitted(lm(cnt ~ temp *factor(season), data=d))
+
+ggplot(d, aes(temp, cnt)) +
+  geom_point() +
+  geom_point(aes(temp, temp2), col=2) +
+  labs(title = "cnt ~ temp * season") +
+  theme_minimal()
+
+```
+
+## Using a linear model with polynomial term to fit non-linear data
+
+```{r echo = F}
+t2<- lm(cnt ~ temp + I(temp^2), data =d)
+d$t2 <- fitted(t2)
+ggplot(d, aes(temp, cnt)) +
+  geom_point()+
+  geom_line(aes(temp, t2), col = 2, size=1)+
+    theme_minimal() +
+  labs(title = "cnt ~ temp + I(temp^2)")
+
+```
+
+
+
+
+# Regression assumptions
+
+## Regression assumptions
+- Regression results are only accurate given a set of assumptions.
+- **Validity of the data** for answering the research question.
+- **Linearity of the relationship** between outcome and predictor variables.
+- **Independence of the errors** (in particular, no correlation between consecutive errors as in time series data).
+- **Normality of errors.**
+- **Equal variance of errors** (homoscedasticity).
+- **L**inearity, **I**ndependence, **N**ormality, **E**qual variance:  **LINE**.
+- Don't stress about LINE: most of these problems are not fatal and can be fixed by improving your model---picking different or additional variables or using a different distribution or modelling framework.
+- Residual plots are the best tool for assessing whether model assumptions have been satisfied.
+
+
+## Validity of the data for answering the research question
+- The outcome measure should accurately reflect the phenomenon of interest.
+- The model should include all the relevant variables and should generalize to all the cases to which it is applied.
+- For example, if you want to know about intelligence or cognitive development, a model of test scores misses the mark.
+- Think critically about the relationship between research question and data!
+- On to residual plots...
+
+## What *should* a residual plot look like?
+
+```{r echo=F}
+set.seed(123)
+# data parameters
+n <- 500
+a <- 1.4
+b <- 2.3
+sigma <- 10
+df <- data.frame(x = runif(n, 0, 10))
+
+# Create the outcome variable
+df$y <- a + b*df$x + rnorm(n,0, sigma)
+
+# Fit model
+mod <- lm(y~x, df)
+
+# Plot residuals
+plot(mod, which = 1)
+```
+
+The residuals are randomly and normally distributed around the 0 line.
+
+
+
+## Linearity assumption
+The most important mathematical assumption of the regression model is that the outcome can be modeled as a deterministic linear function of the separate predictors: $y = \beta_{0} + \beta_{1}x_{1} + \beta_{2}x_{2}...$
+
+
+## Linearity assumption
+```{r echo=F}
+ggplot(d, aes(temp, cnt)) + geom_point() + stat_smooth(method="lm", se=F) +
+  ggtitle("cnt ~ temp")
+```
+
+## Non-linearity diagnosis
+- Check bivariate plots (as above)
+- Check residual plots, because the failure to model non-linearity will show up in the residuals
+- `plot(model object, which = 1)` is a built-in R function for checking the error distribution:  fitted values (x-axis) compared to residuals (y-axis).
+
+## Non-linearity diagnosis:  residual plot
+
+```{r echo = F}
+m <- lm(cnt~temp, data=d)
+plot(m, which=c(1))
+```
+
+
+## What to do about non-linearity
+- Non-linear regression functions can be fit with a linear model!
+- Add quadratic  terms and/or interaction terms.
+- Consider transforming the outcome variable: log(y) for skewed outcome variables is a  possibility
+- In hopeless cases, use a non-parametric approach like KNN instead.
+
+## What to do about non-linearity
+```{r, echo=F}
+m <- lm(cnt~temp + I(temp^2) , data=d)
+plot(m, which=c(1))
+```
+
+A new problem appears:  unequal variance of errors.  Discussion below.
+
+## Non-independence of errors diagnosis
+- Happens in time-series or when observations are clustered (multiple data points from single individuals, stores, classrooms, etc).
+- Look at a residual plot.
+
+## Non-independence of errors diagnosis: plot
+```{r echo=F}
+m <- lm(cnt~temp + I(temp^2) , data=d)
+
+plot(d$instant,residuals(m), main="Residuals by date", pch=20)
+abline(h=0, col=2)
+```
+
+## What to do about non-independence of errors
+- Switch to an appropriate model for time series (ARIMA, etc).
+- Use hierarchical/multilevel models to handle clustering.
+- Add variables to a linear model that account for time or clustering: year, season, month, weekday.
+
+## What to do about non-independence of errors: add variables
+```{r echo=F}
+m <- lm(cnt~temp + I(temp^2) +yr +factor(season) + factor(weekday) + factor(mnth), data=d)
+plot(d$instant,m$residuals, main="Residuals by date with added variables", pch=20)
+abline(h=0, col=2)
+```
+
+
+## Normality of the residuals
+- This is not a very important assumption, actually.
+- Linear regression is extremely robust to violations of normality.
+- But, if you want to check it: `qqPlot(model object)`, in the car package (among other implementations).
+
+## Normality of the residuals
+```{r echo = F, wanring = F, message=F}
+library(car)
+m <- lm(cnt~temp + I(temp^2)  + factor(weathersit) + yr
+        +hum + windspeed+ factor(mnth) + factor(weekday) +holiday +workingday, data=d)
+qqPlot(m,pch=20)
+```
+
+## Equal variance of errors diagnosis and correction
+
+```{r, echo=F}
+m <- lm(cnt~temp + I(temp^2) , data=d)
+plot(m, which=c(1))
+```
+
+
+## Equal variance of errors diagnosis and correction
+- Residuals have a funnel shape.
+- See previous slide!
+- Try transforming the outcome variable by taking the log (only works with positive values).
+- Calculate adjusted standard errors that are robust to unequal variance, as in the sandwich package.
+- Use a non-parametric technique like KNN.
+
+# Additional model fitting considerations
+
+## Collinearity
+- Collinearity is when two predictor variables are strongly correlated with each other.
+- While not a regression assumption per se, collinearity can  affect the accuracy of coefficients.
+- Collinearity is less of a concern when we are only interested in prediction.
+- It primarily affects our interpretation of coefficients, by inflating standard errors.
+- Example:  temp and atemp (perceived temperature) in the bike data.
+
+## Collinearity example: $cnt \sim temp$
+```{r results='markup'}
+display(lm(cnt ~ temp, data=d))
+```
+
+## Collinearity example: $cnt \sim temp + atemp$
+```{r results='markup'}
+display(model <- lm(cnt ~ temp + atemp, data=d))
+```
+
+## Collinearity
+
+- The standard errors blow up for collinear predictors because the model cannot determine how much variation in Y each predictor is responsible for.
+- The simple solution is to remove one of the collinear variables.
+- How do you identify collinear variables?
+- Fit your model by adding predictors individually and pay attention to what happens to coefficients and standard errors. 
+- Dramatic increases in SEs likely indicates collinearity.
+- There are complicated tests for collinearity: the variance inflation factor, or VIF, measures the amount of multicollinearity in a model.
+- However, the solution for inflated standard errors always comes down to removing the one of the highly correlated variables.
+
+## Outliers
+
+Outliers can affect an OLS fit.
+
+```{r echo = F}
+
+df  <- data.frame(x = runif(20,0,10))
+df$y <- 1 + 2*df$x + rnorm(20, sd=2)
+
+df[21,1:2] <- c(9,50)
+
+ggplot(df, aes(x, y))+
+  geom_point() +
+  theme_minimal() +
+  labs(title= "Influence of an outlier",
+       subtitle = "Red = with outlier.  Blue = without outlier.") +
+  #geom_smooth(data=subset(data, x >= 2), method='lm',formula=y~x,se=F)
+  stat_smooth(data=df[-21,], method = "lm", se=F) +
+stat_smooth(method = "lm", se=F, col= 2)
+
+
+```
+
+
+## Outliers
+- Generally, you should not remove outliers  but try to understand them.
+- **They are part of your sample and may contain important information about the population.**
+- However, some extreme values could be coding errors.
+- If, for example, observations are beyond the range of possible values then you should remove them.
+- Remember:  we aren't interested in univariate outliers but rather in **outliers among the residuals**, after fitting the model.
+- Advice:  Plot your data!
+
+
+## Outliers among regression residuals: baseball salaries in 1986 predicted by performance stats
+```{r echo=F}
+library(ISLR)
+data("Hitters")
+h <- Hitters
+
+write.csv(h, "hitters.csv", row.names = F)
+
+m <- lm(sqrt(Salary) ~AtBat+ Hits + Years + HmRun + RBI + Walks +
+          Assists , data=h)
+
+rm <- rlm(sqrt(Salary) ~AtBat+ Hits + Years + HmRun + RBI + Walks +
+          Assists , data=h)
+
+plot(m, which=1)
+
+```
+
+
+
+## Outliers
+
+- Clearly, Schmidt and Kennedy (and to a lesser extent Sax) are not well-described by this model.
+- Rather than removing these players as outliers, however, we should seek to improve the model so they are no longer outliers.
+- Is there a characteristic shared by these players that we could code as a variable and include as a predictor in the regression?
+- Maybe they got injured and their pay remained high even as their performance suffered.
+- Use information from outlying residuals to think critically about your model and data.
+- You may find you need to do domain research.
+
+# Overfitting
+
+## Which model is overfitting the data?  Black line or blue?
+
+![](Overfitted_Data.png)
+
+## Which model will do better with a different sample of data?
+
+![](Overfitted_Data.png)
+
+## Key ideas in modelling
+- *In-sample performance*: how the model performs on the data that was used to build it. (We call this the training dataset.)
+- *Out-of-sample performance*: how the model performs when it encounters new data.
+- *Bias*: "The error that is introduced by approximating a real-life problem, which may be extremely complicated, by a much simpler model" (*Statistical Learning* 35).  Low bias from complicated models is good---to a point.
+- *Variance*:  "The amount by which [the model] would change if we estimated it using a different training data set" (*Statistical Learning* 34). Low variance from simple models is good---to a point.
+- *The bias-variance trade-off* is the idea that you can't have low bias and low variance at once.
+
+## Overfitting
+
+- If the model performs better in-sample than out-of-sample then we say that the model *overfits* the in-sample or training data.
+- Overfitting occurs when a model fits the sample *too well*:  the model has been optimized to capture the idiosyncrasies of the sample.
+- A model that overfits has low bias and high variance.
+- The more complicated the model, typically, the lower the bias.
+- Linear regression is a simple model, which assumes a linear relationship between two variables, and will tend to have higher bias than a more complicated, flexible model like KNN regression.
+- A complicated model that fits one sample very well (low bias) typically will not generalize to other samples (high variance).
+- We accept **bias** in a model in order to lower its **variance**.
+
+
+
+## Cross-validation
+- We will guard against --- or evaluate the amount of---overfitting using a technique called **cross-validation**.
+- The simplest form of cross-validation, the *validation set approach*,  involves randomly splitting the sample into train and test sets---say, 70% train and 30% test (or 50/50 or 60/40).
+- The procedure is to estimate the model on the train set and then evaluate its performance on the test set.
+- In many instances we ignore the model's performance on the train set, considering only how it does on the test set as the best estimate of its performance.
+- A good model is one that balances bias and variance, that describes the training data reasonably well but that also generalizes well to new data.
+
+
+## Canvas quiz
+
+- What does variance refer to?
+
+1. The situation where there is a difference between a model's fitted values and the actual data.
+2. How much the model performance will vary with new data.
+3. Test set performance.
+4. The variation between the observations you are trying to predict.
+5. None of the above.
+
+## Canvas quiz
+
+- A model that has really low bias:
+
+1. Will always have low variance.
+2. Will sometimes have low variance.
+3. Will never have low variance.
+
+
+
+## EXPLORATION:  overfitting
+
+- class6script.R
+
+## K-fold cross validation
+
+- K-fold cross-validation is an improvement on the validation set approach.
+- The problem with the validation set approach is that results are heavily dependent on the randomness of the single split.
+- Rather than splitting the data in two, then, we randomly divide it into k-folds.
+- If k = 10 (a common setting), then we split the data into 10 sub-samples of equal size.
+- We fit the model on 9 of the folds together and then test it on the tenth fold. We do this k times, using a different testing fold each time.
+- $CV_k = \frac{1}{k} \sum_{i=1}^{k} RMSE$
+- We use K-fold cross-validation to
+    + estimate a model's out-of-sample performance,
+    + pick hyperparameters (like the $k$ parameter in KNN regression).
+
+
+## K-fold cross validation
+
+
+![](K-fold_cv.jpg)
+
+
+
+## K-fold cross validation
+
+![](kfold.png)
+
+## Canvas quiz
+
+- What is the advantage of k-fold cross-validation over a single train/test split?
+1. There is no advantage to cross-validation, just as there is no advantage to a single train/test split. You should be validating your models in-sample with a metric like adjusted R2.
+2. You can pick the best test set to minimize the reported RMSE of your model.
+3. It gives you multiple estimates of out-of-sample error, rather than a single estimate.
+
+
+## PRACTICE: Cross validation with caret
+
+- class6script.R
+
+## Comparing models and choosing variables
+
+- We have discussed $R^2$ and RMSE as tools for comparing models.
+- AIC (Akaike Information Criterion) is an additional tool that penalizes  for model complexity (the number of predictors) and guards against overfitting.
+- AIC:  -2 x maximum log likelihood + 2 $p$, where $p$ is the number of predictors.
+- Better models have lower AIC.
+- Given a set of candidate models for the data, the preferred model is the one with the minimum AIC value.
+- We can also compare models with the likelihood ratio test (LRT):  $2 \times [ \ln(\text{likelihood for alternative model}) - \ln(\text{likelihood for null model}) ]$, where the alternative model is the model with additional predictors.
+- LRT is implemented in R's anova() function.
+
+
+
+## Choosing variables 
+
+- You could include all available predictors but your model might also benefit from selecting a subset based on this workflow:
+
+1. *Think about your data*. Include all variables that, for substantive reasons, might be be important in predicting the outcome. Consider combining variables.
+2. *Do EDA.* Look for skewed variables and nonlinear relationships that might indicate the need for log transformation, quadratic terms or interactions. Don't overdo it. 
+3. *Model.* Start simple, adding variables iteratively, checking for the impact on model fit. There is nothing wrong with including predictors that have non-significant p-values.
+
+## Choosing variables: hand-fitting methods
+- *Forward selection* is the practice of adding one variable at a time, checking to see that it improves model fit. Process:
+    + If the added variable improves the model, then keep it in and add another.
+    + Continue until all variables have been tested.
+- *Backward selection* is the practice of starting with a full model, and serially removing variables.  Process:
+    + If the model is better after a variable has been removed, then leave it out.
+    + Continue until all variables have been tested.
+- Test variable additions or exclusions with goodness of fit measures:  RMSE, $R^2$, residual standard deviation, AIC, LRT.
+- *Forward selection followed by backward selection*. Select forward then backward.
+- Unfortunately these hand-fitting procedures are flawed and often do not select the best model since they depend on the *order* in which variables are added or excluded. Is there a better way?
+
+## Choosing variables: automatic selection
+- Problem:  in the Boston data there are 13 predictor variables which means there are $2^k$ or `r 2^13` possible models we could fit, not even including interactions or polynomial terms.
+- This is an extremely large space to search through to find the best model, and the search is computationally expensive and time consuming.
+- Several algorithms have been developed to search model space efficiently to develop an optimal model. (However, care must be taken not to overfit!)
+    + step() and stepAIC():  automate the manual forward and backward selection procedures described earlier.
+
+## Choosing variables: cautions
+- If your goal is description then choosing variables should not be simply a mechanical process.
+- Automatic variable selection algorithms are just tools for exploring your data and thinking about models.
+- **Simple, parsimonious** models are almost always better---they are more interpretable and tend to have lower variance.
+- We will find better ways of automatic variable selection with LASSO and ridge regression.
+
+## DEMONSTRATION: Choosing variables
+
+class6script.R
+
+# Missing data imputation
+
+## Missing data
+
+- Real world data has missing values! (as you've discovered).
+- We can distinguish between different types of missing values:
+- **Missing completely at random (MCAR)**: the probability that an observation is missing is the same for all cases.
+- **Missing at random (MAR)**: the probability that an observation is missing depends on a known mechanism, which we can model.
+- **Missing not at random (MNAR)**:  the probability that an observation is missing depends on some unknown mechanism, which we cannot model. Dealing with MNAR problems is intractable.
+- Tonight we will focus on MAR problems.
+
+
+
+## Example: Pima dataset
+````{r echo = F}
+library(MASS)
+library(missForest)
+data("Pima.tr");data("Pima.te")
+p <- rbind(Pima.tr,Pima.te)
+
+p$npreg[p$npreg==0] <- NA
+p$glu[p$glu==0] <- NA
+p$bp[p$bp==0] <- NA
+p$skin[p$skin==0] <- NA
+p$bmi[p$bmi==0] <- NA
+p$ped[p$ped==0] <- NA
+
+p <- prodNA(p, .2)
+image(is.na(p[1:50,-9]), axes=F, main="NAs in Pima")
+cn <- colnames(p)[-9]
+axis(2, at=0:7/7, labels=cn, cex=.25, las=1)
+
+```
+
+- One solution is to fill in or *impute* the missing values. 
+
+## Imputation strategies
+
+- For prediction, we use **single imputation**.
+- Single imputation works by imputing missing values with variable means, medians or with regression predictions (KNN, Random Forest, linear regression).
+- The problem with single imputation, theoretically, is that the variability of the imputed variable is lower than the actual variable would have been, producing a bias towards 0 in the coefficients.
+- Thus, deletion loses information and single imputation causes bias.
+- For inference, **Multiple imputation** is the best solution.
+- Multiple imputation addresses these problems by imputing missing values with regression but adding the variability back in by re-including the error variation that we would normally see in the data.
+
+
+## EXPLORATION:  single imputation
+
+- class6script.R
+
+# Homework
+
+## Homework
+
+- Lab 4 due before next class, and Interim Report.
+- Read **Statistical Learning**, 4 on classification.
