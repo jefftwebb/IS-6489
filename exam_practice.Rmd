@@ -1,0 +1,205 @@
+---
+title: "Even More Exam Practice: IS 6489"
+output: html_notebook
+---
+
+This notebook contains practice questions and answers for the final exam.  
+
+```{r  warning=F, message = F}
+library(tidyverse)
+library(arm)
+library(caret)
+library(MASS)
+library(missForest)
+
+# Load data
+data(Boston)
+b <- Boston
+p <- read.csv("pima.csv")[,-1]
+
+```
+
+
+**Question**: Using the Boston dataset (already loaded from the MASS package as "b"), create a summary table of min, median, mean and max for medv by proximity to the charles (chas). Your summary table should have 2 rows  and four columns. Based on this table do you think that chas will be an effective predictor of home value?  Explain your answer.
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here
+
+**Question**: Create a plot that displays the relationship between chas and medv. Make sure to title your plot.
+
+```{r}
+# Your code goes here
+
+```
+
+
+
+**Question**: Now test the relationship between chas and medv using a statistical model with appropriate controls for other possible influences on home value.  Calculate a 95% confidence interval (CI) for the regression coefficient and comment on whether, given this interval, the relationship is statistically significant.
+
+```{r}
+# Your code goes here
+```
+
+> Your answer goes here
+
+**Question**: 1. Describe the null distribution for the relationship between chas and medv. 2. What are the conditions under which we would "reject the null"?
+
+> Your answer goes here
+
+
+**Question**: fit a model of medv with all the predictors, plus an interaction between rm and dis. We will call this the "full model."  Is it interpretable?  Explain why or why not.
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here
+
+**Question**: Center and scale the inputs to the full model (15 predictors).  Which predictor has the strongest relationship to the outcome in this model?
+
+> Your answer goes here
+
+**Question**: Interpret the coefficicients in the centered and scaled full model (15 predictors).
+
+> Your answer goes here
+
+
+
+**Question**: Create a categorical variable for dis (split by quartiles) and visualize the interaction between rm and dis. Include a title.  Interpret the interaction by explaining the meaning of the plot.
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here
+
+**Question**: Examine the residual plot for the full model.  Explain what is wrong with these residuals in terms of the LINE assumptions for linear models.  What would you do to address these problems and improve the model?  
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here
+
+**Question**: Refit the full model by log transforming medv.  Interpret the coefficients for chas and nox and comment on whether the model has improved.
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here
+
+**Question**: Use the predictors in the full model (p = 15) to fit a KNN model of medv. Do not log the outcome. Compare the performance of this model with the logged linear model.  Explain which model is providing a better fit to the data both in-sample and estimated out of sample.  Comment on whether one model seems to be overfitting more than the other.
+
+```{r}
+# Your code goes here
+```
+
+> Your answer goes here
+
+**Question**: Explain overfitting in terms of the concept of the bias-variance trade-off.
+
+```{r}
+# Your code goes here
+```
+
+> Your answer goes here
+
+
+**Question**: Inspect and clean the Pima dataset (already loaded as "p").  Which variables required cleaning?  Explain why you decided these variables were not merely outliers.  (Remember:  if oultiers are legitimately part of the sample then they should not be removed.)
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here
+
+**Question**: Impute missing values in the pima dataset and explain why you would not merely remove these observations.
+
+```{r}
+# Your code goes here
+```
+
+> Your answer goes here
+
+
+**Question**:  What is the probablity of having diabetes in this dataset?
+
+```{r}
+# Your code goes here
+
+
+```
+
+> Your answer goes here
+
+
+**Question**: Does the chance of having diabetes increase with npreg in a simple regression?  Express your answer in terms of probability.
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here
+
+**Question**: Evaluate whether the chance of having diabetes increases with npreg in a multivariable regression, after including all other possible explanatory factors for diabetes.  We will call this the "full model" (7 predictors). Express your answer in terms of probability.
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here
+
+**Question**: Compute a standard error for the preceding result so that you can complete the following sentence:  "Number of pregnancies is associated with having diabetes, even after considering the effects of other possible causes.  for example, when we increase the number of pregnancies from _________ to __________, the probability of having diabetes changes by __________, plus or minus ___________."
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here
+
+**Question**: Evaluate the full model (7 predictors) in terms of accuracy, both in-sample and estimated out-of-sample.
+
+```{r}
+# Your code goes here
+```
+
+> Your answer goes here
+
+**Question**: Evaluate the full model in terms of a residual plot. Does the model fit the data?
+
+```{r}
+# Your code goes here
+```
+
+> Your answer goes here
+
+**Question**:  Create a confusion matrix for the full model and indicate which numbers represent false positives and false negatives.  What would you do to reduce the number of false positives returned by this model?
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here
+
+**Question**: Look for the best model predicting the number of applications.  Explain the criteria you have used to identify the best model.
+
+```{r}
+# Your code goes here
+```
+
+> Your answer goes here
+

@@ -1,0 +1,460 @@
+---
+title: "Practice Final Exam"
+subtitle: "Statistics and Predictive Analytics, IS-6489"
+author: "Your name here"
+output:
+  html_notebook
+---
+
+### Overview 
+The final exam will consist in a Canvas quiz and a supporting notebook showing the code that produced your quiz answers.  We will use the notebook to award partial credit, if necessary. After finishing the exam please run each code chunk and submit the HTML file through Canvas. You will be provided with a template notebook to work in.
+
+Completing the exam should take you about 3-4 hours and will consist mostly in multiple choice style questions.  
+
+You may only submit the quiz once.  Make sure to submit only when you are sure your answers are complete and accurate!
+
+### Data
+
+You will be using the "carseats.csv" dataset for your analysis.  It contains store-level and community demographic summaries for 389 stores, located in different cities both in the US and abroad.  The variables include:
+
+- Sales: Unit sales (in thousands) at each location.
+- CompPrice: Price charged by competitor at each location.
+- Income: Community income level (in thousands of dollars).
+- Income50:  A categorical variable indicating whether income level is greater than $50k.
+- Advertising: Local advertising budget for company at each location (in thousands of dollars).
+- Population: Population size in region (in thousands).
+- Price: Price company charges for car seats at each site.
+- ShelveLoc: The quality of the shelving location for the car seats at each site, with 1 indicating the worst location and 3 the best.
+- Age: Average age of the local population.
+- Education: Education level at each location.
+- Urban: A factor with levels "No" and "Yes" to indicate whether the store is in an urban or rural location.
+- US: A factor with levels "No" and "Yes" to indicate whether the store is in the US.
+
+The outcome variable for the analysis is Sales.
+
+### Plots
+
+You will need to know how to upload plots to Canvas.  Please familiarize yourself with how to do this before the exam!  Here are instructions.
+
+1.  Once you have created a plot that you would like to upload, the simplest thing to do is to take a screenshot of it. (There are multiple screenshot how-to sites on the web.) The default file format will be .png, which should work fine.
+2. Go to Canvas and click on Account -> Files.
+3. Select MyFiles and click "upload."
+4. Browse your computer for the screenshot you created in step 1. Upload it to MyFiles.
+5. When you encounter a question that asks for a plot, click the picture icon and browse for your file in your MyFiles folder.  Upload it to the quiz question.
+
+### Details
+
+1. Prior to any random processes use set.seed(418).  This will ensure that your results match those in the answer key. 
+2. Label axes in plots and title/subtitle appropriately. You will not get full credit for plots without these details.
+3. Because some of the questions in the quiz are not automatically graded, the score returned when you submit will be incomplete.  So, don't panic. It will take a week or more for us to finalize grades.
+4. For any cross-validation please use 10-fold CV, repeated 10 times.
+
+### Scenario
+
+You work as a data analyst for a manufacturer of carseats.  Sales have been lagging. Your boss has asked you to identify the strongest predictors of carseat sales, as well as to provide some analytics that would offer guidance on how to allocate advertising dollars. Your boss is savvy at business but doesn't know very much about statistics.
+
+### Data preparation
+
+Clean and model the data, then in prepartion for modeling impute missing observations using the missForest package using set.seed(418).  Create a binary variable entitled "weakest_stores" that takes a 1 for stores with sales below $4000, 0 otherwise. 
+
+```{r}
+library(ISLR)
+library(tidyverse)
+library(arm)
+library(caret)
+library(missForest)
+
+c <- read.csv("carseats.csv")
+
+summary(c)
+
+c <- c %>%
+  mutate(ShelveLoc = factor(ShelveLoc),
+         weakest_stores = ifelse(Sales < 4, 1, 0)) %>%
+  filter((Income > 0 | is.na(Income)) & (Population > 0 | is.na(Population)))
+
+set.seed(418)
+cimp <- missForest(c)$ximp
+
+summary(cimp)
+```
+
+
+You should be working with a dataset that has 385 observations with column means matching these values:
+
+- Income: 69.1
+- Price: 115.1
+- Sales: 6.5923
+- Age: 52.8
+- Education: 13.9
+- weakest_stores: .2286
+
+**Question 1**:  In using Sales as the outcome variable for this analysis we are treating it as what sort of problem?
+
+- classification
+- description
+- inference
+- regression
+- machine learning
+- prediction
+- cross-validation
+
+The correct answer is regression.  
+
+There are two broad classes of supervised learning problems that we've discussed this semester:  regression, for continuous outcomes, and classification, for binary outcomes.  Both classification and regression can be used for description/inference (these terms can be thought of as synonyms).  To this end we use models to tell us whether, and how much, the number of rooms in a home affect its price, for example, and the amount of uncertainty we have in that relationship.  This information is encoded in regression coefficients.  We can also use models to do prediction, of course, in which case we may not be interested at all in description.  Cross-validation is the tool we use to to choose model hyperparameters or to estimate how well our model will perform with new data, for example when our goal is prediction.  Machine learning, defined most broadly, refers to any algorithm that can be used to learn the nature of the relationship between inputs and outputs.  In this broad sense we could include linear and logistic regression as machine learning methods.
+
+**Question 2**:  Create and upload a plot that displays the relationship between ShelveLoc and Sales. Make sure to title your plot and label the axes.
+
+```{r}
+ggplot(cimp, aes(ShelveLoc, Sales)) +
+  geom_boxplot() + 
+  labs(title = "Boxplot of Sales by shelve location")
+```
+
+A boxplot makes the most sense to display a relationship between the levels of a categorical variable and a continuous outcome.  The command in ggplot is geom_boxplot.  A barplot displaying a mean sort of gets at the same thing but misses a lot of information.  One crucial element here is that ShelveLoc must a be a factor for the boxplot to work properly.  Remember also that to get full credit your plot must be titled and labeled appropriately.
+
+**Question 3**: Create an upload two plots:
+
+1. A histogram of Sales
+2. A histogram of log Sales
+
+```{r}
+library(grid)
+library(gridExtra)
+p1 <- ggplot(cimp, aes(Sales)) +
+  geom_histogram() +
+  labs(title = "histogram of Sales")
+
+p2 <- ggplot(cimp, aes(log(Sales))) +
+  geom_histogram() +
+  labs(title = "histogram of log Sales")
+
+grid.arrange(p1,p2)
+```
+
+Again, make sure to title and label your plots.  It is not necessary to put them into one plot as I have done with the grid.arrange function.
+
+**Question 4**: With reference to the plot you created for the previous question, would you choose to model Sales or log Sales?  Explain.
+
+Although a normally distributed outcome is not a formal requirement for linear regression, we've seen that skewed outcome variables will often produce ugly residuals---residuals that are not normally distributed around the the center line.  And that *is* a regressions assumption:  $\epsilon \sim N(0, \sigma^2)$.  Therefore it sometimes makes sense to consider a transformation under these conditions:  
+
+1. Skewed outcome variable.
+2. Outcome variable that has a large range.
+
+In the case of the above histograms we can see that range of Sales is modest and normally distributed, whereas log(Sales) introduces a left skew.  So we would definitely want to model Sales, and not log(Sales), in this case.
+
+**Question 5**: Should you use the variable you created, weakest_stores, in a model of Sales?  Mark all that apply.
+
+- Yes, because it improves in sample performance.
+- No, because it is a version of the response variable.
+- Yes, because the model does better in cross-validation and will do a better job predicting with new data.
+- No, because it creates a model that is too flexible and overfits the data.
+- Perhaps.  It depends what your goal is.  For prediction you should include all possible explanatory variables, which in this case would include weakest_stores.
+
+The correct answer is the second: No, because weakest_stores is a version of the response variable. The last one seems plausible but ultimately does not apply because you should never use a predictor that is a derivative of the outcome variable to predict the outcome.  What we want to learn about is the outcome variable.  If we are using a version of the outcome to explain the outcome then we haven't made any progress on our problem!  Consider the following code:
+
+```{r}
+# simulate an outcome variable from a normal population
+y <- rnorm(1000, mean = 10)
+
+# create a predictor variable that is a function of the outcome.
+x1 <- y^2
+
+# Look at the dataset
+head(cbind(y, x1))
+
+# summarize the regression of y on x1
+summary(lm(y ~ x1))
+```
+
+
+This obviously produces a very good model.  But it does not help us understand y.  Or, another case:
+
+```{r}
+# Create a predictor that is a noisy function of y
+x2 <- ifelse(y > 10, 1, 0)
+
+# Look at the data
+head(cbind(y, x2))
+
+# summarize the regression
+summary(lm(y ~ x2))
+```
+
+This also produces a good model, if less good than above simply because we have lost information in making x2 binary.  But we still haven't produced any insight about y because the model proposes to explain y with, essemntially, y.  The model is circular.  Why are you y inches tall?  Because you are x centimeters tall.  
+
+**Question 6**:  Fit a model of Sales using all appropriate predictors. Of the following variables, which 5 have the largest effect sizes?
+
+```{r}
+full_model <- lm(Sales ~ CompPrice +
+                   Income +
+                   Advertising + 
+                   Population +
+                   Price + 
+                   ShelveLoc +
+                   Age +
+                   Education + 
+                   Urban +
+                   US, 
+                 data = cimp) %>%
+  standardize 
+
+display(full_model)
+
+anova(full_model)
+```
+
+The five biggest effect sizes (in order) were:
+- Price
+- ShelveLoc
+- Income
+- Age
+- Advertising
+
+As per the discussion above, weakest stores should not be in this model (even though it was included among the choices).
+
+There were a couple of ways to go with this.  Standardized coefficients or caret's varImp() function will give you a sense of which predictors matter the most.  The problem is that these methods give you importance or effect size for each factor level, whereas you really want a measure of the impact of the whole variable.  So, you could have guessed based on standardized effect sizes (and probably would have gotten the right answer) or you could have used the anova() function, as above.  The sum of squares column measures the difference between the mean of Sales for each factor level and the overall mean of Sales, squared and summed.  So you can see that the variables associated with the most variation in Sales will have the largest sum of squares and can be considered the most important predictors.
+
+**Question 7**:  Using the same predictors as in the model for the previous question, fit KNN, lasso and ridge regression models of sales.  Which method---linear, KNN, lasso or ridge regression---produces the best estimated out-of-sample performance?
+
+```{r}
+tc = trainControl("repeatedcv", number = 10, repeats = 10)
+
+names(cimp)
+
+set.seed(418)
+
+train(Sales~.,
+      data = cimp[,-12],
+      method = "lm",
+      trControl = tc) # RMSE = 1.43
+
+set.seed(418)
+train(Sales~.,
+      data = cimp[,-12],
+      method = "knn",
+      preProcess= c("center","scale"),
+      trControl = tc) # RMSE = 2.25
+
+
+set.seed(418)
+train(Sales~.,
+      data = cimp[,-12],
+      method = "lasso",
+      preProcess= c("center","scale"),
+      trControl = tc) # RMSE = 1.44
+
+
+set.seed(418)
+train(Sales~.,
+      data = cimp[,-12],
+      method = "ridge",
+      preProcess= c("center","scale"),
+      trControl = tc) # RMSE = 1.43
+
+
+set.seed(418)
+train(Sales~.,
+      data = cimp[,-12],
+      method = "glmnet",
+      preProcess= c("center","scale"),
+      trControl = tc,
+      tuneGrid = expand.grid(
+                     alpha = 1,
+                     lambda = seq(0,1,.1))) # RMSE = 1.43
+
+
+```
+
+The correct answer is linear regression.  But ridge and lasso would be acceptable answers too, although the optimal lambda in both cases is 0, which means that they are equivalent to a linear model in this case because (in the case of ridge):
+
+$$\min_{ \beta_0, \beta_j }\left\{RSS + \lambda \sum_{j=1}^p \beta{_j^2} \right\}$$
+
+Some things to remember:  
+- Use the set.seed() function when you are doing cross-validation, so that your results will be reproducible.
+- Center and scale inputs for KNN, ridge and lasso.
+- The method = "ridge" and method = "lasso" arguments call a different package than glmnet but provide the same results but allow you to easily force one or the other model be fit.
+- You could also use method = "glmnet" and just specify alpha = 1 (for lasso) or alpha = 0 (for ridge).
+
+**Question 8**: Add an interaction between Income and  Price to the model you used in the previous question. Which of the following statements is true of this new model? (Check all that apply.)
+
+Here were the possible answers:  
+
+1. The bias of the model increases.
+2. The variance of the model increases.
+3. The model overfits the data.
+4. We have ignored main effects.
+5. The model is too flexible.
+6. The bias of the model decreases.
+
+The answer is the last one:  The bias of the model decreases.  Here is the rationale for that answer.
+
+```{r}
+set.seed(418)
+(int_caret <- train(Sales ~ CompPrice +
+     Income * Price+
+     Advertising +
+     ShelveLoc +
+     Population +
+     Price  +
+     Age +
+     Education + 
+     Urban +
+     US, 
+     method = "lm",
+     trControl = tc,
+   data = cimp)) # .818
+
+summary(int_caret) #.819
+
+set.seed(418)
+(no_int <- train(Sales ~ CompPrice +
+     Income + Price+
+     Advertising +
+     ShelveLoc +
+     Population +
+     Price  +
+     Age +
+     Education + 
+     Urban +
+     US, 
+     method = "lm",
+     trControl = tc,
+   data = cimp)) #.813
+
+summary(no_int) #.814
+
+```
+
+1. We can assess bias by comparing the model performance in sample with and without the interaction in sample.  R-squared has gone up very slightly with the interaction, so it definitely has not increased the bias.
+
+2. We can assess the variance question by asking whether the model with the interaction would  change more with  new data than the model without the interaction.  Essentially we are comparing the difference between in- and out-of-sample fits for both models. The difference is essentially the same. So the variance does not increase.
+
+3. Neither model overfits.
+
+4. Adding an interaction does not ignore main effects, just changes their interpretation.
+
+5. See 3.
+
+6. Yes, the bias of the model decreases slightly because in-sample fit for the model with the interaction is better:  high r-squared.
+
+
+**Question 9**: Create and upload a plot that illustrates the interaction between Income and Price in predicting Sales. Include summary regression lines in the plot.
+
+```{r}
+summary(cimp$Income)
+
+cimp$income_bin <- ifelse(cimp$Income > 68, "high", "low")
+
+ggplot(cimp, aes(Price, Sales, col = income_bin)) +
+  geom_point()+
+  stat_smooth(method="lm", se=F) + 
+  labs(title = "Sales ~ Price, varying by Income")
+
+```
+
+To plot an interaction we need to make one of the variables binary or categorical.  In the case of the above plot we have to make income binary. We can see in this illustration that the lines are not parallel which indicates an interaction: price predicts sales but does so differently at different levels of income.  This makes sense. As car seats get more expensive fewer are sold, but the decline is steeper in communities with less money.
+
+**Question 10**: Which of the following statements are true of the coefficients in the model with the interaction? (Check all that apply.)
+
+1. The intercept is not interpretable unless the inputs to the model are centered.
+2. The coefficient for the main effect of Price represents the expected change in Sales for every unit increase in Price.
+3. The coefficient for the interaction is not interpretable without centering Price and Income.
+4. The coefficient for the interaction represents the expected change in the slope of Price for every unit increase in Income.  
+5. The coefficients for the main effects of Price and Income are not interpretable without centering Price and Income.
+6. The coefficient for the main effect of Price represents the expected change in Sales for every unit increase in Price when Income = 0. 
+
+1. True. In any model the intercept is the average value of the outcome when all the inputs equal 0.  Some of these never will.
+2. False. In a model with an interaction the main effects are conditional on the level of the interacted variable.  In this case the coefficient for Price represents the expected change in Sales for every unit increase in Price, when Income equals 0.
+3. False.  The coefficient for the interaction does not depend on the levels of the inputs.
+4. True.  
+5. True.  See 2.
+6. True.  See 2.
+
+**Question 11**: Fit a logistic model of weakest_stores using all appropriate predictors, including an interaction between Price and Income.  What is the accuracy of this model, using .5 as the class decision threshold?
+
+```{r}
+(bin_model <- glm(weakest_stores ~ CompPrice +
+     Income * Price+
+     Advertising +
+     ShelveLoc +
+     Population +
+     Price  +
+     Age +
+     Education + 
+     Urban +
+     US, 
+      data = cimp,
+    family = binomial) %>%
+   standardize(binary.inputs = "leave.alone")) %>%
+  display
+
+confusionMatrix(cimp$weakest_stores, ifelse(fitted(bin_model)> .5,1,0))
+```
+
+The possible answers were:
+
+- .67
+- .76
+- .91
+- .92
+- Accuracy is not an appropriate metric for this model.
+
+The answer is .91.  The easiest way to do this is to fit the model (making sure to leave out Sales!) and use caret's confusionMatrix() function to get accuracy.  Accuracy most certainly is an appropriate metric for a logistic---or indeed any classification---model.
+
+**Question 12**:  Using the model of weakest stores, report the change in the probability that an average urban store in an average community located in the US will have weak sales if the shelve location of the carseat is improved from the worst to the best location. 
+
+```{r}
+cs <- coef(bin_model)
+
+cs
+
+invlogit(cs[1] + cs[11] + cs[12] + cs[7]) -
+  invlogit(cs[1] + cs[11] + cs[12] ) 
+
+```
+
+These were the possible answers:
+- .12
+- .21
+- .32
+- .3
+- .43
+- -.37
+
+The correct answer is -.37.  
+
+This is a model with centered inputs so we only need to include coefficients for the intercept, Urban, US and ShelveLoc.  Leaving all the other variables out of the model is selecting average values (when they equal 0).  ShelveLoc = 3 is the best location.  So we subtract the inverse logit of the predicted value when ShelveLoc = 3 from the inverse logit of the predicted value when ShelveLoc = 1.  The probability of a store having weak sales goes down by 37% when we improve the shelf location of the carseat.
+
+**Question 13**:  Write a paragraph in which you summarize the insights from your data analysis.
+
+Example paragraph:
+
+The business problem motivating this analysis is low sales of carseats.  The aim is to understand the strongest predictors of carseat sales, with the secondary aim of perhaps offering guidance for how to allocate advertising money or advise on business strategy.
+
+The strongest finding is that carseat Price and Shelve Location are the strongest predictors of carseat sales.  For example, when we increase the price by $1 sales are expected sales to decline by 120 to 160 per store.  Furthermore, stores that place carseats in the best locations are expected to have much higher sales:  they will sell approximately 4400 to 5300 more carseats than stores that place carseats in the worst location.  Thus, the best way to improve sales is to lower carseat price and to improve the shelve location. 
+
+However, there are additional predictors of sales worth paying attention to, such as the wealth of the community, its average age, and the amount of advertising spent there.  Sales increase with wealth and advertising but decrease with age.  Advertising dollars could be strategically allocated by prioritizing communities with younger age groups.
+
+```{r}
+
+# Code for calculating the confidence intervals
+
+(int_model <- lm(Sales ~ CompPrice +
+     Income * Price+
+     Advertising +
+     ShelveLoc +
+     Population +
+     Price  +
+     Age +
+     Education + 
+     Urban +
+     US, 
+     data = cimp)) 
+
+anova(int_model)
+
+round(confint(int_model), 2)[4,]*1000
+
+round(confint(int_model), 2)[7,]*1000
+```

@@ -1,0 +1,182 @@
+---
+title: "Practice Final Exam"
+subtitle: "Statistics and Predictive Analytics, IS-6489"
+author: "Your name here"
+output:
+  html_notebook
+---
+
+### Overview 
+The final exam will consist in a Canvas quiz and a supporting notebook showing the code that produced your quiz answers.  We will use the notebook to award partial credit, if necessary. After finishing the exam please run each code chunk and submit the HTML file through Canvas. You will be provided with a template notebook to work in.
+
+Completing the exam should take you about 3-4 hours and will consist mostly in multiple choice style questions.  
+
+You may only submit the quiz once.  Make sure to submit only when you are sure your answers are complete and accurate!
+
+### Data
+
+You will be using the "carseats.csv" dataset for your analysis.  It contains store-level and community demographic summaries for 389 stores, located in different cities both in the US and abroad.  The variables include:
+
+- Sales: Unit sales (in thousands) at each location.
+- CompPrice: Price charged by competitor at each location.
+- Income: Community income level (in thousands of dollars).
+- Income50:  A categorical variable indicating whether income level is greater than $50k.
+- Advertising: Local advertising budget for company at each location (in thousands of dollars).
+- Population: Population size in region (in thousands).
+- Price: Price company charges for car seats at each site.
+- ShelveLoc: The quality of the shelving location for the car seats at each site, with 1 indicating the worst location and 3 the best.
+- Age: Average age of the local population.
+- Education: Education level at each location.
+- Urban: A factor with levels "No" and "Yes" to indicate whether the store is in an urban or rural location.
+- US: A factor with levels "No" and "Yes" to indicate whether the store is in the US.
+
+The outcome variable for the analysis is Sales.
+
+### Plots
+
+You will need to know how to upload plots to Canvas.  Please familiarize yourself with how to do this before the exam!  Here are instructions.
+
+1.  Once you have created a plot that you would like to upload, the simplest thing to do is to take a screenshot of it. (There are multiple screenshot how-to sites on the web.) The default file format will be .png, which should work fine.
+2. Go to Canvas and click on Account -> Files.
+3. Select MyFiles and click "upload."
+4. Browse your computer for the screenshot you created in step 1. Upload it to MyFiles.
+5. When you encounter a question that asks for a plot, click the picture icon and browse for your file in your MyFiles folder.  Upload it to the quiz question.
+
+### Details
+
+1. Prior to any random processes use set.seed(418).  This will ensure that your results match those in the answer key. 
+2. Label axes in plots and title/subtitle appropriately. You will not get full credit for plots without these details.
+3. Because some of the questions in the quiz are not automatically graded, the score returned when you submit will be incomplete.  So, don't panic. It will take a week or more for us to finalize grades.
+4. For any cross-validation please use 10-fold CV, repeated 10 times.
+
+### Scenario
+
+You work as a data analyst for a manufacturer of carseats.  Sales have been lagging. Your boss has asked you to identify the strongest predictors of carseat sales, as well as to provide some analytics that would offer guidance on how to allocate advertising dollars. Your boss is savvy at business but doesn't know very much about statistics.
+
+### Data preparation
+
+Clean and model the data, then in prepartion for modeling impute missing observations using the missForest package using set.seed(418).  Create a binary variable entitled "weakest_stores" that takes a 1 for stores with sales below $4000, 0 otherwise. 
+
+```{r}
+library(ISLR)
+library(tidyverse)
+library(arm)
+library(caret)
+
+c <- read.csv("carseats.csv")
+
+```
+
+
+You should be working with a dataset that has 385 observations with column means matching these values:
+
+- Income: 69.1
+- Price: 115.1
+- Sales: 6.5923
+- Age: 52.8
+- Education: 13.9
+- weakest_stores: .2286
+
+**Question 1**:  In using Sales as the outcome variable for this analysis we are treating it as what sort of problem?
+
+- classification
+- description
+- inference
+- regression
+- machine learning
+- prediction
+- cross-validation
+
+**Question 2**:  Create and upload a plot that displays the relationship between ShelveLoc and Sales. Make sure to title your plot and label the axes.
+
+```{r}
+
+```
+
+**Question 3**: Create an upload two plots:
+
+1. A histogram of Sales
+2. A histogram of log Sales
+
+```{r}
+
+```
+
+**Question 4**: With reference to the plot you created for the previous question, would you choose to model Sales or log Sales?  Explain.
+
+**Question 5**: Should you use the variable you created, weakest_stores, in a model of Sales?  Mark all that apply.
+
+- Yes, because it improves in sample performance.
+- No, because it is a version of the response variable.
+- Yes, because the model does better in cross-validation and will do a better job predicting with new data.
+- No, because it creates a model that is too flexible and overfits the data.
+- Perhaps.  It depends what your goal is.  For prediction you should include all possible explanatory variables, which in this case would include weakest_stores.
+
+**Question 6**:  Fit a model of Sales using all appropriate predictors. Of the following variables, which 5 have the largest effect sizes?
+
+```{r}
+
+```
+
+**Question 7**:  Using the same predictors as in the model for the previous question, fit KNN, lasso and ridge regression models of sales.  Which method---linear, KNN, lasso or ridge regression---produces the best estimated out-of-sample performance?
+
+```{r}
+
+```
+
+**Question 8**: Add an interaction between Income and  Price to the model you used in the previous question. Which of the following statements is true of this new model? (Check all that apply.)
+
+```{r}
+
+```
+
+1. The bias of the model increases.
+2. The variance of the model increases.
+3. The model overfits the data.
+4. We have ignored main effects.
+5. The model is too flexible.
+6. The bias of the model decreases.
+
+**Question 9**: Create and upload a plot that illustrates the interaction between Income and Price in predicting Sales. Include summary regression lines in the plot.
+
+```{r}
+
+```
+
+**Question 10**: Which of the following statements are true of the coefficients in the model with the interaction? (Check all that apply.)
+
+1. The intercept is not interpretable unless the inputs to the model are centered.
+2. The coefficient for the main effect of Price represents the expected change in Sales for every unit increase in Price.
+3. The coefficient for the interaction is not interpretable without centering Price and Income.
+4. The coefficient for the interaction represents the expected change in the slope of Price for every unit increase in Income.  
+5. The coefficients for the main effects of Price and Income are not interpretable without centering Price and Income.
+6. The coefficient for the main effect of Price represents the expected change in Sales for every unit increase in Price when Income = 0. 
+
+
+**Question 11**: Fit a logistic model of weakest_stores using all appropriate predictors, including an interaction between Price and Income.  What is the accuracy of this model, using .5 as the class decision threshold?
+
+```{r}
+
+```
+
+- .67
+- .76
+- .91
+- .92
+- Accuracy is not an appropriate metric for this model.
+
+**Question 12**:  Using the model of weakest stores, report the change in the probability that an average urban store in an average community located in the US will have weak sales if the shelve location of the carseat is improved from the worst to the best location. 
+
+```{r}
+
+```
+
+- .12
+- .21
+- .32
+- .3
+- .43
+- -.37
+
+**Question 13**:  Write a paragraph in which you summarize the insights from your data analysis.
+

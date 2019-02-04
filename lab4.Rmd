@@ -1,0 +1,187 @@
+---
+title: "Statistics and Predictive Analytics, Lab 4"
+author: "Your name here"
+output:
+  html_notebook
+---
+
+### Introduction
+
+This lab will give you practice with some of the topics we have been discussing recently:  
+
+- Inspecting and cleaning data.
+- Imputing missing data.
+- Estimating out of sample model performance.
+
+The dataset for the lab, "wage.csv," is available on Canvas (in the Data folder) and consists in wage data on workers in the Mid Atlantic region in the early 2000s.  The outcome variable for the analysis is wage, which represents an individual's earnings measured in $1000s. Our aim will be to build a regression model of wage.
+
+
+```{r warning = F, message = F}
+# Load packages and data
+
+library(tidyverse)
+library(arm)
+library(caret)
+library(missForest)
+library(MASS)
+
+w <- read.csv("wage.csv")[,-1] # Remove the first column of row numbers
+
+```
+
+### Data inspection and cleaning
+
+The dataset is pretty messy.  We can see that there are 10 variables that could be used to predict worker wages, some of which have missing observations, and some of which will not be helpful in the analysis. Let's start out by doing some EDA to understand the dataset.
+
+**Question 1**:  Summarize the data and think about how you'll build a model.  Which variables, for example, will NOT be helpful in modeling wage? Explain your answer.
+
+```{r}
+# Your code goes here
+
+```
+
+>Your answer goes here.
+
+It should have been clear from your data inspection that the outcome variable, wage, needs some work. In the lecture videos I made the point that outliers should not be removed if they are legitimately part of your sample but *should* be removed if, for example, they are out of the variable's logical range.  In this case we would want to classify them not as *outliers* but as *mistakes*. For example, in the bike ridership data, if an observation had a value of 13 for month---an impossible value---it should be classified as a coding error and either removed or, based on available clues, changed.  
+
+**Queston 2**: Take a close look at wage.  There are errors.  (Remember that wage is expressed in $1000s.) How should it be cleaned? How many rows are left in the dataset after this cleaning?
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here.
+
+Following Lab 3's focus on log transformation, we should also ask whether it would make sense to log transform wage for this analysis.  If wage's distribution is skewed and/or has a large range then it might be a good candidate for log transformation.
+
+As it turns out, the range is large, a little more that 2 orders of magnitude (100x).  (Check it.) What about the skew?
+
+**Question 3**:  Create two histograms, one of the unlogged wage variable and one of the logged wage variable, using the cleaned dataset.  Create and label vertical lines representing the mean and median of each variable.  Produce titles for each plot.  Comment on what you see.
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here.
+
+We will continue cleaning.  Notice that if we used this dataset for modeling `lm()` would drop all rows with NAs, which would be nearly 300 observations.  This wouldn't prevent the model from fitting but it could influence results since the missing observations might not be missing completely at random (MCAR).  For example, suppose that all the NAs came from low education workers who also happen to have low wages. Such a pattern, known as missing at random (MAR), would bias the relationship between education and wages since only the low education *high* wage workers are left in the dataset.  In practice it can be difficult or impossible to know whether missing observations are MCAR or just MAR.  Best to treat them as MAR and impute.   If we know that the observations *are* missing completely at random then, in theory, the missing observations could be removed without creating bias in our models.
+
+So, the next stage in cleaning is to impute missing observations. There are a variety of possibilities for imputation. 
+
+1. We could use the column vector's median or mean.  The mean can be problematic if the data is skewed, which is why the preferred value for imputation is usually the median.  
+2. Alternatively, we could use a multivariable model to predict the missings in a column, with information from the other columns as inputs.  This can be very slow, however, if the dataset is large. Imputation with medians or means is always very quick.
+
+In this lab we will do model-based imputation using the missForest package, relying on all the default settings.  Note that because missForest includes a random process, it will be essential to set the seed, as I have done in the code chunk.  After loading the package simply use the `missforest()` function.  Here is an example using the Boston dataset:
+
+```{r}
+data(Boston)
+
+set.seed(222)
+b <- cbind(medv = Boston$medv, prodNA(Boston[,-14], .5)) 
+# Note: this is code just to produce NAs so that we can later impute them
+
+summary(b) # Many missings!
+
+# Now run missForest.  Need to set seed.
+set.seed(222)
+missForest(b)$ximp %>%
+  glimpse  # Look at just the top rows
+```
+
+The imputed dataset is stored in the `$ximp` slot in the list produced by the function.  Notice the warning produced:  "The response has five or fewer unique values.  Are you sure you want to do regression?"  This is because an integer-coded variable has few unique values.  The problem in this case is caused by chas, which should be a factor. MissForest is warning you of this.  
+
+If we change chas to a factor the problem disappears.
+
+```{r}
+b$chas <- factor(b$chas) # Factor
+
+set.seed(222)
+impb <- missForest(b)$ximp # Impute
+
+glimpse(impb) #Inspect
+
+```
+
+We are in a position now, having introduced the NAs into the Boston dataset, to compare the imputations with ground truth.
+
+```{r}
+mean(Boston$crim); mean(impb$crim)
+mean(Boston$zn); mean(impb$zn)
+mean(Boston$indus); mean(impb$indus)
+mean(Boston$chas); mean(as.numeric(as.character(impb$chas)))
+mean(Boston$nox); mean(impb$nox)
+mean(Boston$rm); mean(impb$rm)
+mean(Boston$age); mean(impb$age)
+mean(Boston$dis); mean(impb$dis)
+mean(Boston$rad); mean(impb$rad)
+mean(Boston$tax); mean(impb$tax)
+mean(Boston$ptratio); mean(impb$ptratio)
+mean(Boston$black); mean(impb$black)
+mean(Boston$lstat); mean(impb$lstat)
+
+```
+
+Not bad.  In most cases the imputed data is quite close to the original data. Because  observations have been removed randomly from the Boston data, note, imputation in this case  is not necessary, and would not improve a model. 
+
+**Question 4**: Go ahead and impute missing observations in the wage dataset. For the same reason that we factored chas above, you will want to factor year in the wage dataset, at least for imputation. You can change it back to an integer variable later. Remember to use set.seed() before using missForest.  Throughout this lab, we will use the same arbitrary seed: 222.
+
+```{r}
+#Your code goes here.
+set.seed(222)
+
+```
+
+### Modeling and cross-validation
+
+**Question 5**: In preparation for modeling, create 30% test and 70% train datasets. Example code for doing this is in the tutorial scripts.  There are multiple methods.  (I prefer the createDataPartition() function in caret, which ensures balance between variables in test and train sets.) Note that because the split is random we need to set the seed.  Even with the same seed, however, different methods will return different results. How do you know if you did this correctly?  Your train set should have .7 * 3000 rows, and your test should have the remainder. Remember to use set.seed()!
+
+```{r}
+# Your code goes here
+set.seed(222)
+
+```
+
+We will use the train dataset to fit a model, and evaluate its performance on the test dataset.
+
+**Question 6**:  Explain why we would use a test dataset to evaluate model performance.
+
+> Your answer goes here.
+
+**Question 7**:  Using the test dataset, estimate the out-of-sample performance of a model of wage that uses all predictors.  Use wage, not log wage, as the outcome in this model, and make sure to turn year back into an integer.  
+
+Why do we want year as a number rather than a factor?  The result of subtracting one year from another makes sense as a number, and coding the variable as a number creates a model that is more robust to overfitting because there are fewer parameters. To convert a factor into a number is a little cumbersome in R.  First turn the factor into a character with as.character(), then turn the resulting character variable into a number with as.numeric(). 
+
+```{r}
+# Your code goes here
+
+```
+
+> Your answer goes here.
+
+**Question 8**: Using the caret package, estimate out of sample performance for the above model (all predictors, unlogged wage) using repeated 10-fold cross-validation (repeat 10 times), but use the entire dataset. Remember that you should use set.seed() to control randomness in caret's cross validation procedure.  Report estimated out-of-sample RMSE and $R^2$ and compare it to in-sample RMSE and $R^2$.  Comment on whether this model seems to be overfitting. And, as above, convert year again to a number.
+
+```{r}
+set.seed(222)
+
+# Your code goes here
+
+```
+
+> Your answer goes here.
+
+**Question 9**:  Please score yourself on this lab using the answer key.  For each question, reflect on the difficulty of the question for you and whether you:
+
+- Did not try (just copied the answer key or left it blank).
+- Looked at the answer key to get a hint.
+- Tried but got the wrong answer.
+- Tried and got the right answer.
+
+>Write your answers here.
+
+**Next step.**  After you've finished this lab, go take Quiz 4.  You have one try at the quiz, limited to 30 minutes.  There are five multiple choice and multiple answer questions focusing on the material from this lab.
+
+
+
+

@@ -1,0 +1,388 @@
+---
+title: "Statistics and Predictive Analytics, Lab 1"
+author: "Your name goes here"
+output:
+  html_notebook
+---
+
+### Introduction to the labs and interactive notebooks
+
+Welcome to Lab 1!  
+
+This is an interactive notebook that you will compile into HTML when you are done and submit through Canvas (look for the assignment entitled "Lab 1.") Compile by clicking the `Preview` button above. 
+
+A notebook includes code chunks like the one below in gray (defined by the 3 backticks followed by "r" enclosed in curly braces).  You can run the code in this chunk line by line from RStudio just as you would in a script (press `control-return` at each line) or, to run the whole chunk at once, click the green arrow in the upper left of the chunk. Find the dataset for this notebook, "day.csv," in the "Data" folder under "Files" at Canvas. This dataset records daily ridership in the Washington, DC bikeshare program from 2011 and 2012, along with other information such as temperature and weather.
+
+```{r results='hide'}
+# Load the tidyverse package.  (Make sure, first, that you
+# have installed the package:  Tools -> Install Package,
+# then type "tidyverse" and click Install.)
+
+library(tidyverse)
+
+# Make sure you have downloaded "day.csv" to your working
+# directory.
+
+d <- read.csv("day.csv")[,-(1:2)] 
+
+# The code in square brackets removes the first two columns,
+# which are just row numbers.
+
+head(d) # Look at the top of the dataset
+```
+
+With a notebook, what you see is what you get:  if you have not run a particular code chunk then those results will not be compiled into HTML when you click `Preview`.  So---VERY IMPORTANT---make sure to run all the code chunks in the lab before you upload your compiled notebook.  This will allow me to see and assess your work.  You can add whatever material you'd like to the existing code chunks.
+
+The labs will often include formulas coded in a language called Latex (developed by academic scientists to typeset formulas in papers).  It looks like this:  $\bar{x}$.  You can see the formula interpreted by holding the cursor over the Latex code.  When the notebook compiles to HTML all of the formulas will be automatically rendered.
+
+Further details:
+
+- Check Canvas for the due date.
+- Make sure to write your name in the yaml header at the very top of this document (defined by the three dashes above and below).  
+- Take care that the output in the header remains "html_notebook." (If you accidentally change it, by clicking "Knit to HTML" for example," simply change the output back to "html_notebook" and save.  This should restore the "Preview" option for you.) 
+- Before compiling your lab to HTML, click the "Run" button in the upper left of the RStudio toolbar, and select "run all."  This will ensure that your code chunks have run and will be visible to us in the compiled HTML document that you submit for the grade.
+- Click the "Preview" button on the toolbar to compile your notebook into HTML.  This resulting HTML document is what you will submit through the Lab 1 assignment. (It will be automatically titled something like "lab1.nb.html," which you can leave as is for your submission.)
+- The HTML answer key for this notebook is available for you to check, if you want to do so.  My recommendation would be to try to complete all of the lab without looking at the answer key, but that is up to you.  Keep in mind that the answer key will not always show the only (and possibly sometimes not the best) way to solve the problem.
+- You may work with others in completing the lab (I think that is a powerful way to learn), but you should not cut and paste answers either from other students or the answer key.  To do so would be to completely miss the point of the exercise!  If your answer is identical to the answer key or to another student's lab then you will not get credit for your work.
+- The lab will be graded, although the contribution of the labs to your overall grade is modest.  (For course grading details, check the syllabus.)  
+- If your lab shows evidence that you engaged with the questions (even if you may not have managed to answer it) then you will get full credit. 
+
+### Purpose
+
+The purpose of this lab is to give you a chance to review and practice the material in the course so far, as well as covering some new material such as writing and using functions:
+
+- Writing functions.
+- EDA.
+- Statistical inference: concepts and coding.
+- Confidence intervals.
+
+The labs are primarily teaching/learning tools. You will be learning by running the example code I've written within chunks, writing and commenting your own code, and writing out answers to questions.  
+
+### Entering answers
+
+The questions in the lab that you should answer are clearly labeled. When you write out an answer outside of a code chunk make sure to enter your answer after the ">", which will create a block quote and make your code easier to identify.  For example:
+
+>Write your answer here. 
+
+Let's get started.
+
+### Writing functions
+
+You were introduced to writing functions in the "Intermediate R" Datacamp course.  
+
+Functions are part of what makes R so powerful.  We define a function like this:
+
+`function_name <- function(x, y, z){ ...code for the function... }`
+
+X, y and z above are the arguments to the function, enclosed in parentheses, and the curly braces contain the code defining the function, which uses the arguments.  Below is an example of a function, my_mean, with two arguments: `x`, a vector of values, and `round_decimals`, which controls the rounding behavior of the function.  
+
+```{r}
+my_mean <- function(x, round_decimals = 2){
+  mean <- sum(x)/length(x)
+  round(mean, round_decimals)
+}
+```
+
+The default setting for the second argument is 2, which, because it is defined in the function (that's what makes it the default), does not need to be specified explicitly in the function call, unless you want to change it.
+
+```{r}
+# Compare the new function with R's built-in mean()
+# function.
+
+my_mean(d$cnt)
+mean(d$cnt)
+```
+
+Writing a function to calculate the median for a vector of numbers is a harder problem. We'll use R's modulus operator, `%%`, to calculate the remainder after division.  `x %% 2` is a convenient way of figuring out if a number is even (x %% 2 = 0) or odd (x %% 2 = 1).  The slides from class 2 contain the formula for the median. Here goes:
+
+```{r}
+my_median <- function(x){
+  x <- sort(x) # first we sort the input vector
+  n <- length(x) # calculate the number of items in the vector
+  ifelse(n %% 2 == 1, # if the length is odd
+         x[(n + 1)/2], # then pick the middle observation
+         (x[n/2] + x[n/2 + 1])/2) # otherwise find the middle point 
+  # between the two middle observations
+}
+
+my_median(d$cnt) == median(d$cnt) 
+
+# A true value here should provide some confidence that your
+# function is working properly, getting the same answer as
+# the built-in function.
+
+
+```
+
+**Question 1**: Write a function to calculate the range of a vector of numbers.  The range is the difference between the lowest and highest values.  Of course, R has a built in function for calculating the range; ignore that, as well as `min()` and `max()`, and write your own function.
+
+```{r}
+# The code for your function goes here.
+my_range <- function(x){
+ 
+}
+
+my_range(d$cnt)==(range(d$cnt)[2] - range(d$cnt)[1]) 
+
+# Again, a true value here should provide some confidence
+# that your function is working properly.
+```
+
+### EDA
+
+Using these functions, my_mean my_range, and my_median, let's explore the distribution of ridership by season:
+
+```{r}
+d %>% 
+  group_by(season) %>%
+  summarize(number_of_days = n(),
+            mean = my_mean(cnt), # my_mean is the function I wrote
+            range = my_range(cnt), # my_range is your function
+            median = my_median(cnt)) # my_median is my function 
+```
+
+In three of the seasons, notice, the mean is much greater than the median. Such distributions are known as "right-skewed." 
+
+Here is a plot of the  mean and median for the season 1 distribution:
+
+```{r}
+
+d %>%
+  filter(season==1) %>%
+  mutate(median = my_median(cnt),
+         mean = my_mean(cnt)) %>%
+  ggplot(aes(cnt)) +
+  geom_density() +
+  geom_vline(aes(xintercept = median), col = 4, linetype = 2) +
+  geom_vline(aes(xintercept = mean), col = 2, linetype = 2) +
+  annotate("text", label = "median", x = 1800, y = .0001, col = 4) +
+  annotate("text", label = "mean", x = 3100, y = .0003, col = 2) +
+  annotate("text", label = "longish tail --->", x = 4000, y = .00005) +
+  labs(title = "Right-skewed distribution of riders in Q1") +
+  theme_minimal()
+```
+
+
+**Question 2**: Which measure of central tendency, the mean or median, is more appropriate in the case of right skewed distributions?  Explain your reasoning.
+
+>Write your answer here.
+
+A distribution's quartiles offer another way to summarize central tendency.  In a boxplot, the box "hinges" are defined by the first and third quartiles:
+
+```{r}
+
+ggplot(d, aes(season, cnt, group = season)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of ridership by season")
+
+```
+
+Here the right skew in the season 1 distribution of ridership is apparent in the long top "whisker" and the single outlier.  In boxplots, outliers are defined as observations that are more extreme than 1.5 times the interquartile range (IQR), which is defined by the box. The season variable is clearly associated with a lot of variation in ridership, which suggests that it would be an effective predictor of ridership in a formal statistical model.
+
+It is sometimes convenient to transform a continuous distribution into a categorical one.  Why might we do this?   One reason is simplicity: to pick out major patterns more easily, particularly when presenting results to clients.
+
+Here is a plot of ridership as a function of (continuous) temperature:
+
+```{r}
+ggplot(d, aes(temp, cnt)) +
+  geom_point() +
+  labs(title = "ridership ~ temp")
+```
+
+The following plot shows the relationship between average ridership and a categorical version of temperature, created using the `cut()` and the `quantile()` functions.  In this case the plot presents *quintiles* of temperature.
+
+```{r}
+# Find information about cut() with ?
+
+?cut
+
+d$temp_cat <- cut(x = d$temp, # x is the vector we want to split.
+                  breaks = quantile(d$temp, 
+                                    probs = seq(0, 1, .2)), # breaks defines the
+                  # where we want to split x. We use the quantile function to 
+                  # define those splits by equal portions, in this case 20%
+                  include.lowest = T) # Include lowest ensures that 0th percentile 
+                   # is used as the starting point.
+
+
+d %>%
+  group_by(temp_cat) %>% # group by our new variable
+  summarize(avg_ridership = mean(cnt)) %>% # calculate an average for each level
+  ggplot(aes(temp_cat, avg_ridership)) + # pipe into ggplot
+  geom_bar(stat = "identity") + # stat = "identity" is used for a precalculated summary
+  labs(title = "average ridership ~ temp_cat")
+
+
+```
+
+A little simpler, right? Now, try it yourself with the humidity variable.
+
+**Question 3**:  Convert humidity into a categorical variable (split it into *deciles* this time, not quintiles) and make a barplot like the one above.  Report the factor levels of the categorical variable exactly as produced by `cut()` and comment on the story this plot tells about the relationship between ridership and humidity.
+
+```{r}
+# create the barplot here: average ridership ~ humidity_cat
+
+```
+
+>Write your answer here.
+
+### Statistical inference
+
+The difference between a population and a sample is why we need inferential statistics:  we must   *infer* population parameters (such as $\mu$) from sample statistics ($\bar{x}$).  Our ability to do so accurately, however, is degraded by:
+1. small sample size and
+2. high variance in the underlying population.
+
+Let's create some sampling distributions to illustrate these ideas:
+
+**Sample size**:  100 means from samples of size 10, 100 and 1000.
+
+```{r}
+# The following code creates a dataframe of 100 sample
+# means, x, from samples of different sizes:  10, 100, 1000.
+# n is just a label so we know which is which. replicate()
+# does the work of repeating the calculation of the mean.
+# rnorm() does the work of sampling from a normal
+# distribution.  We sample from the same normal distribution
+# of mean = 0 and sd = 1 but vary n.
+
+low_n <- data.frame(x = c(replicate(n = 100, mean(rnorm(n = 10, mean = 0, sd = 1))),
+                          replicate(n = 100, mean(rnorm(n = 100, mean = 0, sd = 1))),
+                          replicate(n = 100, mean(rnorm(n = 1000, mean = 0, sd = 1)))),
+                    n = c(rep("n = 10", 100),
+                          rep("n = 100", 100),
+                          rep("n = 1000", 100)))
+head(low_n) # inspect the result
+
+# Using this dataset, we creat a density plot of those
+# means, facetted by n.
+
+ggplot(low_n, aes(x)) +
+  geom_density() +
+  facet_wrap(~n) +
+  theme_minimal() +
+  labs(title = "Sample mean variability as a function of n",
+       subtitle = "Sampling distribution of sample means")
+
+```
+
+**Population variance**:  100 means from populations with different variance.
+
+```{r}
+
+# Again we create a dataframe with code very similar to that
+# above, only now we hold n and the mean of each sample
+# constant, but vary the standard deviation: 1, 2, 5.
+
+pop_variance <- data.frame(x = c(replicate(100, mean(rnorm(100, sd = 1))),
+                          replicate(100, mean(rnorm(100, sd = 2))),
+                          replicate(100, mean(rnorm(100, sd = 5)))),
+                    var = c(rep("sd = 1", 100),
+                          rep("sd = 2", 100),
+                          rep("sd = 5", 100)))
+
+head(pop_variance) # inspect the result
+
+ggplot(pop_variance, aes(x)) +
+  geom_density() +
+  facet_wrap(~var) +
+  theme_minimal() +
+  labs(title = "Sample mean variability as a function of population variance",
+       subtitle = "Sampling distribution of sample means")
+
+```
+
+We can be more sure that $\bar{x}$ is close to $\mu$ when (a)  sample size is large and/or (b) the variance in the population is low.  These two factors---$n$ and $s$, sample size and sample standard deviation (which is the best available estimate of the population standard deviation)---are therefore central in the formula for the standard error of the mean (SEM):  $\frac{s}{\sqrt{n}}$.  A standard error (SE) is just the standard deviation of the sampling distribution of a sample statistic.  A sampling distribution is generally hypothetical: if we were to repeatedly sample from a population and calculate a sample statistic (say, the mean) for each sample, then the distribution of those sample means is the *sampling distribution of sample means*.  The formula for SEM is a shortcut:  it allows us to estimate the standard error, based on just one sample, without having to generate a sampling distribution.  
+
+SEM, then, quantifies our uncertainty about how well the sample mean represents the population mean.  We can express this uncertainty also as a confidence interval (CI).
+
+We can calculate a 95% CI for any sample statistic by subtracting 1.96 x SE from the mean of the sample statistic (for the lower bound) and adding 1.96 x SE to the mean of the sample statistic (for the upper bound). (If we want, we can use the number 2, rather than 1.96, since 2 is close enough to produce a good estimate.)
+
+**Question 4**: Calculate SEM for bike ridership in each season using the formula for SEM.
+
+```{r}
+# Write code to calculate SEM
+```
+
+
+**Question 5**: Calculate a 95% CI for average bike ridership in each season,  rounding to the nearest whole number.
+
+```{r}
+# Write code to calculate 95% CIs for bike ridership here.
+
+```
+
+**Question 6**:  Explain why we use the number 1.96 (or 2) in the formula for the CI.  If it is helpful, you may refer to this plot (run the code chunk to see the plot):
+
+```{r}
+plot(seq(-3.2, 3.2, length = 50),
+     dnorm(seq(-3, 3, length = 50), 0, 1),
+     type = "l",
+     xlab = "",
+     ylab = "",
+     ylim = c(0, 0.5),
+     main = "The '68-95-99.7' rule for the normal distribution")
+
+segments(x0 = c(-3, 3),
+         y0 = c(-1, -1),
+         x1 = c(-3, 3),
+         y1 = c(1, 1))
+
+text(x = 0,
+     y = 0.45,
+     labels = expression("99.7% of the data within 3 sd"), cex = 1.5)
+
+arrows(x0 = c(-2, 2),
+       y0 = c(0.45, 0.45), 
+       x1 = c(-3, 3),
+       y1 = c(0.45, 0.45))
+
+segments(x0 = c(-2, 2),
+         y0 = c(-1, -1),
+         x1 = c(-2, 2),
+         y1 = c(0.4, 0.4))
+
+text(x = 0,
+     y = 0.3,
+     labels = expression("95% of the data within 2 sd"), cex = 1.2)
+
+arrows(x0 = c(-1.5, 1.5),
+       y0 = c(0.3, 0.3),
+       x1 = c(-2, 2),
+       y1 = c(0.3, 0.3))
+
+segments(x0 = c(-1, 1),
+         y0 = c(-1, -1),
+         x1 = c(-1, 1),
+         y1 = c(0.25, 0.25))
+
+text(x = 0,
+     y = 0.15,
+     labels = expression("68% of the data within 1 sd"), cex = .7)
+```
+
+>Write your answer here.
+
+**Question 7**: *Scenario*. Suppose you work for the city office responsible for running the bikeshare program.  Your boss asks you to develop a simple model, using the historical bike ridership data, that will enable you to predict, each Monday, bike ridership for the rest of the week. You know that, in the absence of any other information, mean historical ridership for each month will offer a decent prediction. You also know, having done some EDA, that there is a strong relationship between temperature and ridership in the data. On Monday you'll have a weather forecast for the week.  Create a table (it will be fairly large) that will allow you to quickly predict, with a confidence interval, the number of riders on each upcoming weekday based on the following inputs:  month, day of week, and whether the forecasted temperature will be above or below average (for that month). Note:  weekday = 0 is Sunday. Essentially, you should build a table that features the conditional means (with upper and lower CIs) of ridership, given month, weekday and above and below average temperature.  Such a table will function as a rough predictive model:
+
+```{r}
+# Write your code here
+```
+
+**Question 8** (optional): Can you think of ways to improve on the above table to produce more accurate predictions? Produce a new table implementing your improvements.
+
+```{r}
+# Write your code here
+```
+
+>Explain your improvements here.
+
+**Question 9**:  Please score yourself on this lab using the answer key.  For each question, reflect on the difficulty of the question for you and whether you:
+
+- Did not try (just copied the answer key or left it blank).
+- Looked at the answer key to get a hint.
+- Tried but got the wrong answer.
+- Tried and got the right answer.
+
+>Write your answers here.
+
+**Next step.**  After you've finished this lab, go take Quiz 1.  You have one try at the quiz, limited to 30 minutes.  There are five questions multiple choice and multiple answer questions focusing on the material from this lab.

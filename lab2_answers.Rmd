@@ -1,0 +1,367 @@
+---
+title: "Statistics and Predictive Analytics, Lab 2"
+author: "Your name here"
+output:
+  html_notebook
+---
+
+Welcome to Lab 2!  
+
+- Check Canvas for the due date.
+- Make sure to write your name in the yaml header above.  
+- Take care that the output type in the header remains "html_notebook." (If you accidentally change it, by clicking "Knit to HTML" for example," simply change the output back to "html_notebook" and save.  This should restore the "Preview" option for you.) 
+- Before compiling, click the "Run" button in the upper left of the RStudio toolbar, and select "run all."  This will ensure that your code chunks have run and will be visible to us in the compiled HTML document that you submit for the grade.
+- Click the "Preview" button on the toolbar to compile your notebook into HTML.  This resulting HTML document is what you will submit through the Lab 1 assignment.
+- The HTML answer key for this notebook is available for you to check, if you want to do so.  
+
+### Introduction
+
+The purpose of the lab is to give you practice with the skills we have covered so far in the course, from EDA to linear regression:  
+
+- Create exploratory plots and think about data modeling.
+- Fit and interpret simple and multivariable linear models.
+- Interpret effect sizes.
+- Calculate error metrics and compare models.
+- Calculate quantities of interest.
+
+You will be working with the Boston housing dataset that is available in the MASS package.  This dataset records tract level statistics on housing in the Boston area in the 1970s.  The outcome variable is `medv`:  Median Home Value (expressed in $1000s).  
+
+Our goal in this analysis, specifically, will be to find out whether air pollution, encoded in the variable `nox`, impacts home values.  Are increases in nitrogen oxide associated with lower home values? Or, to put the question the other way around, is clean air associated with more expensive homes?  Data analysis can be focused on prediction or description, also known as inference.  Our goal here is the second.
+
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+
+# install.packages("MASS") # install the MASS package (if
+# you don't already have it)
+
+library(MASS)
+library(knitr)
+library(caret)
+library(arm)
+
+data(Boston) 
+
+?Boston # Look at the data dictionary 
+
+b <- Boston # Rename to avoid more typing than necessary
+```
+
+
+A more complete data dictionary is available in the original Harrison & Rubinfeld paper that used the dataset, starting on page 96: https://www.law.berkeley.edu/files/Hedonic.PDF.
+
+
+### Data exploration and modeling
+
+The `summary()` function allows you to quickly assess the distributions of the variables, including which ones are continuous and which are binary, and whether there are any missing observations.  
+
+```{r}
+summary(b)  # Get a summary of each variable.  
+```
+
+For example, we can see that "chas" is binary: it is an indicator for whether the tract (not the home) bounds the Charles River.  Another handy tool is `glimpse()` from dplyr, which will give you a sense of the structure of the data and of the observations themselves.
+
+```{r}
+glimpse(b)   # Look at the structure of the dataset
+```
+
+We can review the univariate distributions of the predictors in the dataset using histograms like this:
+
+```{r}
+
+for(i in 1:length(names(b))){
+  hist(b[,i], main = names(b)[i])
+}
+```
+
+What are we looking for exactly?  We want to be familiar with the distributions of the predictors before we jump into regression modeling to inform choices about how to clean and encode variables:  are there outliers? nonsensical values? should a variable be encoded as a factor or left numeric? would it make sense to do any other variable transformations such as turning a continuous variable into a binary or categorical variable?
+
+For example, the rad variable (an index of the highway accessibility) has a strange distribution.  Here is the scatterplot of rad against medv:
+
+```{r}
+ggplot(b, aes(rad, medv)) +
+  geom_point() +
+  labs(title = "Medv ~ rad")
+
+table(b$rad) # Here is the distribution of rad.
+```
+
+Is rad best left as numeric or should it be treated as a factor variable or should we discretize it (< 9 and > 9)?  These are the sorts of questions we need to think about at the data exploration/data modeling phase of an analytic project.
+
+Rad = 24 is a weird value.  Nevertheless, numeric differences in rad are meaningful, in that higher levels represent less accessibility (and lower represent greater).  Harrison and Rubinfeld entered Rad into the model as a logged variable. It looks like this would actually make the fit worse, though the scatterplot looks better.  Turning rad into a factor variable fits a separate model for each level of rad.  The concern in doing that is we may be overfitting.  I would leave rad as numeric.
+
+**Question 1**: Calculate and report average `nox` in this dataset with 95% CIs.  
+
+```{r}
+# Write your code here
+
+(nox_mean <- mean(b$nox))
+(nox_sem <- sd(b$nox)/sqrt(nrow(b)))
+nox_mean - 1.96 * nox_sem
+nox_mean + 1.96 * nox_sem
+
+```
+
+**Question 2**: Plot the relationship between `nox` and `medv` (i.e., make a scatterplot with a least squares line).  Make sure to title the plot and label the axes. 
+
+```{r}
+# Write your code here
+
+# Plot the relationship 
+ggplot(b, aes(nox, medv)) +
+  geom_point()+
+  labs(title= "medv ~ nox") + 
+  stat_smooth(method="lm")
+
+```
+
+### Fitting and interpreting models
+
+*Question 3*:  Fit a simple linear regression with medv as the outcome variable and nox as the predictor. Report the 95% confidence interval for $\hat\beta$ (the coefficient for nox) and comment on whether its difference from 0 might be due to chance. 
+
+
+```{r}
+# Your code goes here
+
+# Fit and summarize the model
+display(lm(medv ~ nox, b))
+
+# Roughly calculate the 95% CIs for estimate for nox
+-33.92 - 2 * 3.2
+-33.92 + 2 * 3.2
+```
+
+>Write your answer here.
+
+>The 95% CI does not include 0 (is not even close to including 0), which suggests that this relationship is not due to randomness in sampling but is real.
+
+**Question 4**: Fit a linear model of `medv` with all the predictors (we will call this the "full model") and interpret the coefficient for `nox`.  By "interpret" I mean you should explain what the coefficient says about the relationship between  `nox` and `medv`.  Additionally, report a 95% CI for the `nox` coefficient.  
+
+```{r}
+# Write your code here. 
+
+# Fit the model
+full <- lm(medv ~., data = b)
+
+# Get the coefficients using the coef() function
+coef(full) %>% round(2)
+
+# Calculate the lower and upper CIs. We use the
+# coefficients() function to pull information out of the
+# table created by summary().
+(lower <- coef(full)[6] - 1.96*coefficients(summary(full))[6,2])
+(upper <- coef(full)[6] + 1.96*coefficients(summary(full))[6,2])
+
+# or, more simply
+confint(lm(medv ~., data = b))[6,] 
+
+# The estimates are slightly different.
+confint(lm(medv ~., data = b))[6,1] == lower
+confint(lm(medv ~., data = b))[6,1] == upper
+
+# Why different? Rounding error. Above we rounded 1.96
+# rather than using a more exact value of the critical value
+# for the t distribution to seven decimals.  For example, we
+# can use R to calculate the exact theoretical value given
+# degrees of freedom (df) equal to the number of rows minus
+# the number of parameters. Using the quantile function for
+# the t distribution, qt(), we input the quantiles we are
+# interested in, .025 and .975 for a 95% CI, then enter the
+# df.  The function calculates the corresponding critical
+# values, which we can see are different from 1.96.
+
+qt(c(.025, .975), df = nrow(b) - 14)
+
+```
+
+>Write your answer here.
+
+>The coefficient for nox is -17.77, which is strongly negative.  We multiply  the SE for nox by 2 and subtract and add that value to the coefficient estimate for nox to create the 95% CIs, which do NOT contain 0.  Hence this variable is statistically significant.
+
+>However it is worth noting that the variable is weirdly scaled! It does not include 0 (so the intercept is not interpretable in this model), nor does its entire range contain a full unit.
+
+>Still, the interpretation is: when nox increases by 1 unit we expect medv to change by -$17.77 (x 1000), holding the other predictors constant. But again this is not a change we would ever see in the real world.
+
+>It is worth observing that the coefficient for nox has changed a lot from the simple model.  Why?  This is a very common occurrence when we add variables to a model.  Any parameter estimate is contingent on the other model terms.  In this case the effect of nox declined, presumably because other variables began doing some of the explanatory work that, in the simple model, had been done exclusively by nox. The simple model may have had an exaggerated account of the effect of air pollution on home value.
+
+### Effect sizes
+
+**Question 5**: Which of the predictors in the full model has the largest effect size? 
+
+Beware of differently scaled variables that can produce misleading effect sizes! You should rescale the variables to answer this question, using either `rescale` or `standardize` from the arm package, or, if you want to use caret, include the `preProcess = c("center", "scale")` argument in the train() function.  Remember that by "effect size" we mean the variable whose coefficient has the largest absolute scaled value. 
+
+```{r}
+# Your code goes here
+
+# Unscaled
+train(medv ~ .,
+      data = Boston,
+      method = "lm") %>%
+  summary %>%
+  coefficients %>%
+  round(1)
+
+# Scaled
+train(medv ~ .,
+      data = Boston,
+      preProcess = c("center","scale"),
+      method = "lm") %>%
+  summary %>%
+  coefficients %>%
+  round(1) # or
+
+lm(medv ~ crim  +
+      zn +
+      indus +
+      chas +
+      nox +
+      rm  +
+      age +
+      dis +
+      rad +
+      tax +
+      ptratio +
+      black +
+      lstat, Boston) %>%
+  standardize %>% # this divides by 2 sd.
+  display 
+
+  
+```
+
+>Write your answer here.
+
+>Lstat has the largest effect size.
+
+### Error metrics and model comparison
+
+**Question 6**:  Report the $R^2$ and RMSE of the full model.  You can report $R^2$ from the model summary, of course, but see if you can write a function to calculate $R^2$ (refer to the formulas in the lecture slides).
+
+```{r}
+# your code goes here
+
+rmse <- function(actual, fitted){
+  sqrt(mean((actual - fitted)^2))
+}
+
+rmse(b$medv, fitted(full))  * 1000 
+# average of $4679 error per observation
+
+# Here is R-squared calculated by display()
+display(full)
+
+# Here is a function to calculate R-squared
+r2 <- function(actual, fitted){
+  RSS <- sum((actual - fitted)^2)
+  TSS <- sum((actual - mean(actual))^2)
+  1 - RSS/TSS
+}
+
+r2(b$medv, fitted(full))
+
+```
+
+
+>We can read the R-squared directly from the model summary.  RMSE we need to calculate using a function. R-square is .74 and RMSE is $4679.
+
+**Question 7**: Fit a KNN model using the variables the full model.  Does the KNN model fit the data better than your linear model?  Explain your reasoning. Sometimes, for example, if a non-parametric model fits the sample data better, it can be because the parametric assumptions of a linear model are being violated. (It is also possible that the non-parametric model is overfitting the sample data.  More on that in a future class.)
+
+```{r}
+# Your code goes here
+
+knn_mod <- train(medv ~ .,
+                 data= b,
+                 method= "knn",
+                 preProcess = c("center","scale")) 
+
+# Remember:  the inputs to KNN models should always be
+# centered and scaled!
+
+rmse(b$medv, predict(knn_mod))
+
+rmse(b$medv, fitted(full))
+
+```
+
+>Write your answer here.
+
+>The KNN model definitely fits the sample data better than the linear model.
+
+### Statistical communication
+
+**Question 8**: Our original question was:  "is clean air associated with more expensive homes?"  Write a paragraph in which you address that question, including any thoughts you have about the shortcoming of the analysis or your level of confidence in the results. 
+
+>Write your paragraph here
+
+>Lower levels of nox appear to be associated with higher home prices, even after accounting for a variety of other possible explanations for home prices. Nox has one of the larger coefficients in the model and is strongly significant.
+
+In class I made the point that regression model results generally should be translated into quantities of interest so that non-statistical audiences can better understand them.  
+
+**Question 9 (optional)**: Using the full model calculate the value of a typical home at a low level of `nox` and at a high level of `nox`.  It is up to you to define what counts as "low" or "high."  Your goal should be to complete the following sentence:  "When `nox` increases from a low level (defined by ...) to a high level (defined by ...) we observe an increase/decrease in home values of, on average, ... dollars."
+
+```{r}
+# Your code goes here
+
+quantile(Boston$nox, probs = c(.1,.9)) 
+# Define high and low:  10th and 90th percentiles
+
+
+#Look at distributions:  should we use mean or median for typical values?
+for(i in 1:(length(names(Boston))-1)){ 
+  hist(Boston[,i], main = names(Boston)[i])
+  abline(v = mean(Boston[,i]), col = 1)
+  abline(v = median(Boston[,i]), col = 2)
+}
+
+# Use mostly medians:  distributions are almost all (with
+# the exception of rm) skewed.
+
+low_df <- data.frame(crim =median(Boston$crim),
+                       zn = median(Boston$zn),  
+                       indus  = median(Boston$indus),
+                       chas  = 0,
+                       nox  = .427,
+                       rm   = mean(Boston$rm),
+                       age  = median(Boston$age),
+                       dis  = median(Boston$dis),
+                       rad  = median(Boston$rad),
+                       tax   = median(Boston$tax),
+                       ptratio = median(Boston$ptratio),
+                       black  = median(Boston$black),
+                       lstat = median(Boston$lstat))
+
+high_df <-data.frame(crim =median(Boston$crim),
+                       zn = median(Boston$zn),  
+                       indus  = median(Boston$indus),
+                       chas  = 0,
+                       nox  = .713,
+                       rm   = mean(Boston$rm),
+                       age  = median(Boston$age),
+                       dis  = median(Boston$dis),
+                       rad  = median(Boston$rad),
+                       tax   = median(Boston$tax),
+                       ptratio = median(Boston$ptratio),
+                       black  = median(Boston$black),
+                       lstat = median(Boston$lstat))
+
+predict(full, newdata = high_df) - predict(full, newdata = low_df)
+
+
+```
+
+>Complete the sentence here.
+
+>When `nox` increases from a low level (the 10th percentile: concentration of .427) to a high level (defined by the 90th percentile: concentration  of .713), while the other predictors are at typical values (defined by the mean for rm and the median for all the other variables, because they are skewed) we observe a decrease in home values of, on average, about $5000 dollars.  Considering that the average home price is $22,500, this represents a very substantial proportion of the cost of a home.
+
+
+**Question 10**:  Please score yourself on this lab using the answer key.  For each question, reflect on the difficulty of the question for you and whether you:
+
+- Did not try (just copied the answer key or left it blank).
+- Looked at the answer key to get a hint.
+- Tried but got the wrong answer.
+- Tried and got the right answer.
+
+>Write your answers here.
+
+**Next step.**  After you've finished this lab, go take Quiz 2.  You have one try at the quiz, limited to 30 minutes.  There are five multiple choice and multiple answer questions focusing on the material from this lab.
+

@@ -1,0 +1,503 @@
+---
+title: "Even More Exam Practice: IS 6489"
+output: html_notebook
+---
+
+This notebook contains practice questions and answers for the final exam.  
+
+```{r  warning=F, message = F}
+library(tidyverse)
+library(arm)
+library(caret)
+library(MASS)
+library(missForest)
+
+# Load data
+data(Boston)
+b <- Boston
+p <- read.csv("pima.csv")[,-1]
+
+```
+
+
+**Question**: Using the Boston dataset (already loaded from the MASS package as "b"), create a summary table of min, median, mean and max for medv by proximity to the charles (chas). Your summary table should have 2 rows  and four columns. Based on this table do you think that chas will be an effective predictor of home value?  Explain your answer.
+
+```{r}
+# Your code goes here
+
+b %>% 
+  group_by(chas) %>%
+  summarize(min = min(medv),
+            median = median(medv),
+            mean = mean(medv),
+            max = max(medv))
+  
+```
+
+> Your answer goes here
+
+**Question**: Create a plot that displays the relationship between chas and medv. Make sure to title your plot.
+
+```{r}
+# Your code goes here
+
+ggplot(b, aes(factor(chas), medv)) +
+  geom_boxplot() +
+  labs(title = "Median home value by proximity to the Charles River",
+       x = "Tract fronts Charles River",
+       y = "Median Home Value")
+  
+```
+
+
+
+**Question**: Now test the relationship between chas and medv using a statistical model with appropriate controls for other possible influences on home value.  Calculate a 95% confidence interval (CI) for the regression coefficient and comment on whether, given this interval, the relationship is statistically significant.
+
+```{r}
+# Your code goes here
+
+mod <- summary(lm(medv ~ ., data = b))
+CI <- c(coefficients(mod)[5,1] - 2 * coefficients(mod)[5,2], coefficients(mod)[5,1] + 2 * coefficients(mod)[5,2])
+CI
+```
+
+> Your answer goes here
+
+> Yes, the statistically significant relationship between chas and medv survives the addition of other predictors in a linear regression.  The 95% CI does not contain 0 which indicates that the relationship is statistically significant.
+
+**Question**: 1. Describe the null distribution for the relationship between chas and medv. 2. What are the conditions under which we would "reject the null"?
+
+> Your answer goes here
+
+> 1. The null distribution for any beta coeeficient is a t-distribution with the degrees of freedom parameter set by n - 1.  This is essentially a standard normal distrubution centered at 0. 
+2. We reject the null when the observed value is equal to or more extreme than one of the critical values in the tail of the null distribution. In a two-tailed test the critical values are defined as those marking 95% of the central part of the null distribution.
+
+**Question**: fit a model of medv with all the predictors, plus an interaction between rm and dis. We will call this the "full model."  Is it interpretable?  Explain why or why not.
+
+```{r}
+# Your code goes here
+
+display(full <- lm(medv ~ crim +
+             zn+
+            indus +
+            chas   +
+            nox   +
+            rm   *
+             dis  +
+            age  +
+            rad  +
+            tax +
+            ptratio +
+            black +
+            lstat, data = b))
+
+display(standardize(lm(medv ~ crim +
+             zn+
+            indus +
+            chas   +
+            nox   +
+            rm   *
+             dis  +
+            age  +
+            rad  +
+            tax +
+            ptratio +
+            black +
+            lstat, data = b)))
+
+```
+
+> Your answer goes here
+
+> This model is not interpetable because the intercept represents the value of a home when all of the inputs are 0, and many of them will never be 0.
+
+**Question**: Center and scale the inputs to the full model (15 predictors).  Which predictor has the strongest relationship to the outcome in this model?
+
+> Your answer goes here
+
+> lstat is the strongest predictor.
+
+**Question**: Interpret the coefficicients in the centered and scaled full model (15 predictors).
+
+> Your answer goes here
+
+>(Intercept) 22.23: average medv (in $1000s) when all the predictors are average.   
+z.crim      -2.10: change in medv with a 1-unit increase in z.crim.
+z.zn         1.09: change in medv with a 1-unit increase in z.zn.
+z.indus      0.12: change in medv with a 1-unit increase in z.indus.
+c.chas       2.75: change in medv with a 1-unit increase in c.chas.
+z.nox       -4.31: change in medv with a 1-unit increase in z.nox.
+z.rm         6.37: change in medv with a 1-unit increase in z.rm when z.dis = 0.
+z.dis       -5.79: change in medv with a 1-unit increase in z.rm when z.rm = 0.
+z.age        0.56: change in medv with a 1-unit increase in z.age.
+z.rad        5.30: change in medv with a 1-unit increase in z.rad
+z.tax       -4.27: change in medv with a 1-unit increase in z.tax.
+z.ptratio   -3.94: change in medv with a 1-unit increase in z.ptratio.
+z.black      1.60: change in medv with a 1-unit increase in z.black.
+z.lstat     -7.63: change in medv with a 1-unit increase in z.lstat.
+z.rm:z.dis   5.92: the increase in the slope of z.rm with a 1 unit increase in z.dis.
+
+
+**Question**: Create a categorical variable for dis (split by quartiles) and visualize the interaction between rm and dis. Include a title.  Interpret the interaction by explaining the meaning of the plot.
+
+```{r}
+# Your code goes here
+
+b$dis_cat <- cut(b$dis, quantile(b$dis))
+
+ggplot(b, aes(rm, medv, col = dis_cat)) +
+  geom_point() +
+  stat_smooth(method="lm", se=F) +
+  labs(title = "medv ~ rm, varying by dis")
+
+
+```
+
+> Your answer goes here
+
+> We know this is an interaction because the lines are not parallel.  For homes with the lowest value of dis---closest to the city---the number of rooms don't add as much to home value compared to those that are further from Boston.
+
+**Question**: Examine the residual plot for the full model.  Explain what is wrong with these residuals in terms of the LINE assumptions for linear models.  What would you do to address these problems and improve the model?  
+
+```{r}
+# Your code goes here
+
+plot(full, which = 1)
+
+improved <- lm(log(medv) ~ crim +
+             zn+
+            indus +
+            chas   +
+            nox   +
+            rm   *
+             dis  +
+            age  +
+            rad  +
+            tax +
+            ptratio +
+            black +
+            lstat*rm, data = b)
+
+plot(improved, which = 1)
+
+```
+
+> Your answer goes here
+
+> LINE = **L**inearity, **I**ndependence, **N**ormality, **E**qual variance:  **LINE**.
+We can address this non-linearity by adding terms to the model---such as interactions or quadratic terms---or by log transforming the outcome.  
+
+**Question**: Refit the full model by log transforming medv.  Interpret the coefficients for chas and nox and comment on whether the model has improved.
+
+```{r}
+# Your code goes here
+
+display(lm(log(medv) ~ crim +
+             zn+
+            indus +
+            chas   +
+            nox   +
+            rm   *
+             dis  +
+            age  +
+            rad  +
+            tax +
+            ptratio +
+            black +
+            lstat, data = b))
+
+
+```
+
+> Your answer goes here
+
+> nox -0.81: exp(-.81)- 1 =  -.56*100 is the percentage change in medv associated with a 1 unit increase in nox. 
+chas 0.10:  exp(.1) = .1*100 is is the percentage change in medv associated with a 1 unit increase in chas. 
+The model with the logged outcome has improved:  the R-squared is higher compared to the  unloged model.
+
+**Question**: Use the predictors in the full model (p = 15) to fit a KNN model of medv. Do not log the outcome. Compare the performance of this model with the logged linear model.  Explain which model is providing a better fit to the data both in-sample and estimated out of sample.  Comment on whether one model seems to be overfitting more than the other.
+
+```{r}
+# Your code goes here
+rmse <- function(actual, predicted) sqrt(mean((actual - predicted)^2))
+
+knn_model <- train(medv ~ crim +
+             zn+
+            indus +
+            chas   +
+            nox   +
+            rm   *
+             dis  +
+            age  +
+            rad  +
+            tax +
+            ptratio +
+            black +
+            lstat,
+            data = b,
+            preProcess = c("center","scale"),
+            method = "knn")
+
+linear_model <- train(log(medv) ~ crim +
+             zn+
+            indus +
+            chas   +
+            nox   +
+            rm   *
+             dis  +
+            age  +
+            rad  +
+            tax +
+            ptratio +
+            black +
+            lstat,
+            data = b,
+            method = "lm")
+
+knn_model #.73
+linear_model #.79
+
+rmse(b$medv, fitted(knn_model)) #3.38
+rmse(b$medv, exp(fitted(linear_model))) #4.21
+```
+
+> Your answer goes here
+
+> The knn model is overfitting because it does better in sample than out of sample compared to linear regression.
+
+**Question**: Explain overfitting in terms of the concept of the bias-variance trade-off.
+
+```{r}
+# Your code goes here
+```
+
+> Your answer goes here
+
+> From *Statistical Learning*:
+
+>What do we mean by the variance and bias of a statistical learning
+method? Variance refers to the amount by which ˆf would change if we estimated it using a different training data set. Since the training data are used to fit the statistical learning method, different training data sets will result in a different ˆf. But ideally the estimate for f should not vary too much between training sets. However, if a method has high variance then small changes in the training data can result in large changes in ˆf.In general, more flexible statistical methods have higher variance.
+
+>On the other hand, bias refers to the error that is introduced by approximating a real-life problem, which may be extremely complicated, by amuch simpler model. For example, linear regression assumes that there is a linear relationship between Y and X1,X2,...,Xp. It is unlikely that any real-life problem truly has such a simple linear relationship, and so performing linear regression will undoubtedly result in some bias in the estimate of f.
+
+> Overfitting refers to a high variance, low bias model.  Were such a model estimated using a different training set, it would hcange a lot.  That is because flexible methods --- e.g., random forest --- are in danger of fitting noise in the training set, and therfore don't generalize very well when predicting on a test set with different noise.
+
+**Question**: Inspect and clean the Pima dataset (already loaded as "p").  Which variables required cleaning?  Explain why you decided these variables were not merely outliers.  (Remember:  if oultiers are legitimately part of the sample then they should not be removed.)
+
+```{r}
+# Your code goes here
+
+summary(p)
+
+p <- p[-c(which(p$bp == 0), which(p$age > 100), which(p$bmi < 0)), ] 
+  
+summary(p)
+```
+
+> Your answer goes here
+
+> There were 3 values that should be removed, not because they were outliers but because they were plainly mistakes:  age = 130, bp = 0, bmi = -3. It is sort of tricky to remove the outliers without also removing the NAs.
+
+**Question**: Impute missing values in the pima dataset and explain why you would not merely remove these observations.
+
+```{r}
+# Your code goes here
+nrow(na.omit(p))
+
+new_p <- missForest(p)$ximp
+
+summary(new_p)
+```
+
+> Your answer goes here
+
+> Removing the NAs would get rid of just under half of the dataset.  There is information in these rows with NAs that would be lost if we were to simply delete them.  It is almost always better to impute mising values, particularly in a relatively small dataset, although that decision will be somewhat sensitive to context (see the cleaning example in Lab 6). For imputation we used missForest, although we could also have used medianImpute from the caret package.
+
+**Question**:  What is the probablity of having diabetes in this dataset?
+
+```{r}
+# Your code goes here
+
+glm(type ~ 1, data = new_p, family = binomial) %>%
+  coef %>%
+  invlogit
+
+sum(new_p$type=="Yes")/nrow(new_p)
+  
+  
+```
+
+> Your answer goes here
+
+> .33
+
+**Question**: Does the chance of having diabetes increase with npreg in a simple regression?  Express your answer in terms of probability.
+
+```{r}
+# Your code goes here
+
+display(npreg_mod1 <- glm(type ~ npreg, data = new_p, family = binomial))
+
+summary(new_p$npreg)
+
+invlogit(coef(npreg_mod1)[2] * 4) - 
+  invlogit(coef(npreg_mod1)[2] * 3)
+
+```
+
+> Your answer goes here
+
+> The log odds of diabetes increase by .166 with every unit increase in npreg.  To evaluate the probability we must pick values of npreg:  we'll go with an increase from 3 to 4.  Increasing npreg from 3 to 4 increases the probability of diabetes by .04.
+
+**Question**: Evaluate whether the chance of having diabetes increases with npreg in a multivariable regression, after including all other possible explanatory factors for diabetes.  We will call this the "full model" (7 predictors). Express your answer in terms of probability.
+
+```{r}
+# Your code goes here
+
+display(npreg_mod2 <- glm(type ~ ., data = new_p, family = binomial))
+
+pred_df <- data.frame(npreg = c(3,4),
+                      glu = mean(new_p$glu),
+                      bp = mean(new_p$bp),
+                      skin = mean(new_p$skin),
+                      bmi = mean(new_p$bmi),
+                      ped = mean(new_p$ped),
+                      age = mean(new_p$age))
+pred_df
+
+invlogit(predict(npreg_mod2, newdata = pred_df[2,])) - 
+  invlogit(predict(npreg_mod2, newdata = pred_df[1,]))
+
+# Alternative method
+
+display(npreg_mod3 <- glm(type ~ npreg +
+                            rescale(glu) +
+                            rescale(bp) +
+                            rescale(skin) +
+                            rescale(bmi) +
+                            rescale(ped) +
+                            rescale(age), 
+                          data = new_p, 
+                          family = binomial))
+
+invlogit(coef(npreg_mod3)[1] + coef(npreg_mod3)[2]*4) - 
+  invlogit(coef(npreg_mod3)[1] + coef(npreg_mod3)[2]*3)
+
+# alternative method
+
+display(npreg_mod4 <- standardize(glm(type ~ npreg +
+                                        glu +
+                                        bp +
+                                        skin +
+                                        bmi +
+                                        ped +
+                                        age, 
+                          data = new_p, 
+                          family = binomial)))
+
+invlogit(coef(npreg_mod4)[1] + coef(npreg_mod4)[2]) -
+  invlogit(coef(npreg_mod4)[1])
+
+mean(new_p$npreg)
+mean(new_p$npreg) + 2 * sd(new_p$npreg)
+```
+
+> Your answer goes here
+
+> In a multiviariable model npreg remains predictive of diabetes.  When npreg increases from 3 to 4 the probability of diabetes increases by .02.  Note: there is nothing magic about 3 vs. 4 npreg; all that matters is to pick values near the center of the inverse logit curve.  Alternatively we could center and scale the inputs to the model, including npreg.  In that case we could say that increases npreg from the average by 1 unit (that is, by 2 sd, from 3.5 to 10) the probability of having diabetes increases by .17.
+
+**Question**: Compute a standard error for the preceding result so that you can complete the following sentence:  "Number of pregnancies is associated with having diabetes, even after considering the effects of other possible causes.  for example, when we increase the number of pregnancies from _________ to __________, the probability of having diabetes changes by __________, plus or minus ___________."
+
+```{r}
+# Your code goes here
+
+boot_diff <- NULL
+for(i in 1:1000){
+  new <- sample_frac(new_p, 1, replace = T)
+  mod <- glm(type ~ ., data = new, family = binomial)
+  boot_diff[i] <- invlogit(predict(mod, newdata = pred_df[2,])) - invlogit(predict(mod, newdata = pred_df[1,]))
+}
+
+head(boot_diff)
+mean(boot_diff)
+2*sd(boot_diff)
+```
+
+> Your answer goes here
+
+>"Number of pregnancies is associated with having diabetes, even after considering the effects of other possible causes.  For example, when we increase the number of pregnancies from 3 to 4, the probability of having diabetes changes by .024, plus or minus .023."  
+
+**Question**: Evaluate the full model (7 predictors) in terms of accuracy, both in-sample and estimated out-of-sample.
+
+```{r}
+# Your code goes here
+(caret_glm <- train(type~ .,
+                   data = new_p,
+                   method = "glm")) #.77
+
+acc <- function(actual, predicted) sum(actual==predicted)/length(actual)
+acc(new_p$type, predict(caret_glm)) #.78
+```
+
+> Your answer goes here
+
+> The accuracy in-sample is approx .77 and estimated out-of-sample accuracy is approx .78.
+
+**Question**: Evaluate the full model in terms of a residual plot. Does the model fit the data?
+
+```{r}
+# Your code goes here
+binnedplot(predict(npreg_mod2, type = "response"), 
+           ifelse(new_p$type=="Yes",1, 0) - predict(npreg_mod2, type = "response"))
+```
+
+> Your answer goes here
+
+> The model fits decently.  5 out of 23 points fall outside the the 95% CI bands, which is what we would expect by chance.
+
+**Question**:  Create a confusion matrix for the full model and indicate which numbers represent false positives and false negatives.  What would you do to reduce the number of false positives returned by this model?
+
+```{r}
+# Your code goes here
+
+confusionMatrix(predict(caret_glm), new_p$type)$table
+
+confusionMatrix(ifelse(fitted(npreg_mod2) > .9, "Yes", "No"), new_p$type)$table
+```
+
+> Your answer goes here
+
+> There were 41 false positives and 75 false negatives. Reducing the false positives will require that we shift the class decision threshold up, requiring a higher probability of "event" to put an observation into the "Yes" category, thereby reducing the likelihood of a mistake in this class. Note that this shift also reducing the number of true positives.
+
+**Question**: Look for the best model predicting the number of applications.  Explain the criteria you have used to identify the best model.
+
+```{r}
+# Your code goes here
+
+library(ISLR)
+data(College)
+head(College)
+
+(lm_mod <- train(Apps ~ ., 
+      data = College,
+      method = "lm") )
+
+(glmnet_mod <- train(Apps ~ ., 
+      data = College,
+      method = "glmnet",
+      preProcess = c("center","scale")) )
+
+(knn_mod <- train(Apps ~ ., 
+      data = College,
+      method = "knn",
+      preProcess = c("center","scale")) )
+
+coef(glmnet_mod$finalModel, glmnet_mod$finalModel$tuneValue$lambda) %>% 
+  round(2)
+
+```
+
+> Your answer goes here
+
+> The outome, Apps, is continuous so we use regression.  Linear regression and Lasso are very similar in terms of performance.  However, in this case Lasso does not appear to have simplified the model, so is not preferable on that basis.
+

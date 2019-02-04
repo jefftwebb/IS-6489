@@ -1,0 +1,449 @@
+---
+title: "Statistics and Predictive Analytics, Lab 5"
+author: "Your name here"
+output:
+  html_notebook
+---
+
+
+
+```{r}
+# Load packages
+library(tidyverse)
+library(caret)
+library(arm)
+library(MASS)
+library(missForest)
+
+```
+
+### Introduction
+
+In the lecture and tutorial videos we have discussed regularization and introduced logistic regression.  This lab will give you practice working with both methods, and will give you a chance to review other important techniques such as missing data imputation, cross-validation, and communicating key results.  
+
+### Cleaning and imputing missing data
+
+We will start out working with the "college.csv" dataset in the folder for Lab 5. This dataset consists in statistics for a large number of US Colleges from the 1995 issue of US News and World Report.  The outcome variable is "Apps"---the number of annual applications received by the college. One of the challenges in using this dataset is that it contains missing observations that are best imputed.  The dataset also has some evident data errors.  As noted in the videos, it makes sense to clean the data first (and remove the names of the colleges since that variable, with a different value for every row, will be of no assistance in predicting the number of applications a college receives), then impute the missings. 
+
+```{r}
+c <- read.csv("college.csv")
+names(c)[1] <- "college"
+
+#You can find a description of the dataset here:
+library(ISLR)
+?College
+```
+
+**Question 1**: Clean the data. Think of logical checks for variable values, for example, after summarizing the data.  If you encounter values that are not possible, then remove those rows. (Another option, if there were large numbers of mistaken values, would be to turn them into NAs and impute them.)   The dataset contains 777 rows. I was able to find 5 erroneous observations, bringing the number of rows down to 772. See if you can do the same. Please indicate which variables you have cleaned and why.
+
+```{r}
+# Your code goes here
+summary(c)
+
+# Apps should not be negative.  How many negative observations 
+# are there?
+
+subset(c, Apps <= 0) # 3 observations
+
+# PhDs cannot be over 100%
+
+subset(c, PhD > 100) # 1 observation
+
+# Graduation rate cannot be greater than 100%
+
+subset(c, Grad.Rate > 100) # 1 observation
+
+# Here is code for filtering out those 5 rows
+c <- subset(c, Apps > 0 & PhD <=100 & Grad.Rate <= 100) 
+
+# Remove the first column of names -- not useful for modeling
+c <- c[, -1]
+
+```
+
+> Your answer goes here.
+
+> We removed 5 observations:  3 with negative apps, 1 with grad rate > 100%, and 1 with percentage of PhDs > 100%.  Removing five observations should not create a problem, given that we have over 700 rows in the dataset.  Had the mistakes been more prevalent then we could have considered imputing rather than removing them.
+
+In the tutorial I mentioned that it is a good idea to check for near zero variance predictors, since they typically do not add much to a model, and can produce problems during cross-validation. We will use the `nearZeroVar()` function in caret:
+
+```{r}
+nearZeroVar(c,  names= T)
+```
+
+The predictors appear to have enough variance, given the function's defaults.  This function would, if needed, return a vector of problematic columns for removal.
+
+Use missForest to impute missing values. This resulting imputed dataset is the one we will use for subsequent modeling.
+
+```{r}
+set.seed(31)
+# Your code for imputing missing data goes here.
+cimp <- missForest(c)$ximp
+
+```
+
+As discussed previously, however, there are other options.  The caret package has support for imputation, but, as we've seen, its imputation functions only handle numeric data.  We can make categorical predictors  numeric by turning them into what are known as dummy variables.  A dummy variable is a binary variable that represents the presence or absence of a given level of a factor or categorical variable; the original variable is thus split into multiple columns.  Here is an illustration using the `dummyVars()` function in caret on a subset of the college dataset and displaying just the top rows.
+
+```{r}
+dummyVars("~.", data = c[, 1:2]) %>%
+  predict(newdata = c) %>%
+  data.frame %>%
+  head
+```
+
+Notice that this function takes the Private variable and converts it into a numeric binary variable.  For use in a regression, however, we need to make sure that one level in each dummy is missing (this allows us to avoid  perfect collinearity and the so-called "dummy variable trap").  Here is the amended code using the `fullRank = T` argument:
+
+
+```{r}
+dummyVars("~.", data = c[, 1:2], fullRank = T) %>%
+  predict(newdata = c) %>%
+  data.frame %>%
+  head
+```
+
+Of course, this example is not very interesting because we have merely taken a binary categorical variable and turned it into a numeric binary variable.  Still, the example shows what our workflow would be using caret for imputation: 
+
+1. Transform categorical variables into dummy variables, 
+
+2. Impute missing data,
+
+3. Use the new dataset in regression.  
+
+Here is the workflow:
+
+```{r}
+# Create dummies 
+cdummy <- dummyVars("~.", data = c, fullRank = T) %>% 
+  predict(newdata = c) %>%
+  data.frame 
+
+# The imputation stage
+cdummy_median <- cdummy %>%  
+  preProcess(method = "medianImpute") %>%
+  predict(newdata = cdummy)
+
+head(cdummy_median)
+
+# Or, the imputation stage (using random forest imputation)
+cdummy_bag <- cdummy %>%  
+  preProcess(method = "bagImpute") %>%
+  predict(newdata = cdummy)
+
+head(cdummy_bag)
+
+# The modeling stage
+lm(Apps ~ .,  data = cdummy_bag) %>%
+  display
+
+```
+
+
+Notice that n = 772.  We successfully imputed the missing data, including 5 missing observations in Private.
+
+### Linear regression and regularization
+
+**Question 2**: Fit a regression  model of Apps (the number of applications a college receives) using all the predictor variables in the data set.  Report the cross-validation estimate of out-of-sample RMSE automatically produced by caret. Use 10-fold cross-validation repeated 5 times to ensure good stability in the estimates. Use 31 as the random seed.
+
+
+```{r}
+set.seed(31)
+# Your code goes here
+(lm_caret <- train(Apps ~ .,
+      data=cimp,
+      preProcess=c("center","scale"),
+      trControl = trainControl(method = "repeatedcv", number = 10, repeats = 5),
+      method="lm"))
+
+summary(lm_caret)
+
+```
+
+>Your answer goes here. 
+
+> If you used the seeds provided for missForest and caret then the estimated out of sample RMSE should be about 1079.24.  Even if you did not use the seed your results would have been very similar.  That is the advantage of using repeated k-fold cross-validation: it does not depend a single random split of the data (which could be misleading about out-of-sample performance), but on many random splits.  
+
+**Question 3**:  Fit a regularized regression  model of Apps  using `glmnet`  in caret.  Use all the predictor variables, but do not specify a search grid or a particular model (lasso or ridge); let the defaults in glmnet handle these choices. Again, use 10 fold cross validation repeated 5 times. 
+
+1. Report estimated out-of-sample RMSE.
+
+2. Report which model type---ridge or lasso or a mixture of the two---was chosen by glmnet.
+
+3. Is there a reason to prefer one of these models--- linear regression (question 2) or this regularized model--- for prediction?
+
+```{r}
+set.seed(410)
+# Your code goes here
+(glmnet_mod <- train(Apps ~ .,
+      data=cimp,
+      preProcess=c("center","scale"),
+      trControl = trainControl(method = "repeatedcv", number = 10, repeats = 5),
+      method = "glmnet"))
+
+# The optimal hyperparameters
+glmnet_mod$finalModel$tuneValue
+
+# The coefficients
+coef(glmnet_mod$finalModel, glmnet_mod$finalModel$tuneValue$lambda)
+```
+
+> Estimated out of sample RMSE using these seeds was around 1089.   Glmnet chose a mixture of ridge and lasso (alpha = .1) and did not shrink any predictors to 0. The difference in performance between this regularized model and the linear model was negligible. I would just go ahead and use the linear model because it fits more quickly.  Also, because glmnet model did not drop any predictors in this instance it offers no advantages in terms of interpretability.  The downside of regularization is the search time to optimize lambda and  the fact that these are more complicated models to explain.  So if they offer no advantages in performance or interpretation (fewer coefficients) then just go with garden variety OLS.
+
+```{r}
+#Let's compare the two models visually to show that there is not much difference:
+compare <- data.frame(variables =  rep(as.character(names(coef(lm_caret$finalModel))),2))
+
+compare$method <- c(rep("glmnet", 18), rep("lm", 18))
+
+compare$coefs <- c(as.numeric(as.character(coef(glmnet_mod$finalModel, glmnet_mod$bestTune$lambda))),
+                   as.numeric(as.character(coef(lm_caret$finalModel))))
+
+ggplot(compare, aes(variables, coefs, group=method, fill=method)) +
+  geom_bar(stat = "identity",position="dodge") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+  labs(title= "Comparison of coefificients chosen by lm and glmnet (Lasso)")
+```
+
+
+**Question 4**:  Which predictor had the largest effect size in the linear model (from question 2)?
+
+
+```{r}
+# Your code goes here
+
+# We already centered and scaled so we can just look for 
+# the largest coefficient in the existing model.
+summary(lm_caret)
+
+```
+
+> Accept was by far the strongest predictor of Apps. Top10perc was the second strongest predictor, followed by Enroll.
+
+### Statistical communication 
+
+**Question 5**: Create and explain a visualization that conveys what you think is the main result from the above---or any additional---modeling. 
+
+```{r}
+# Your code goes here
+
+# Strong interaction between the two strongest predictors
+lm(Apps~Accept*Top10perc, data = cimp) %>%
+  standardize %>%
+  display
+
+ggplot(cimp, aes(Accept, Apps, col = Top10perc)) +
+  geom_point() +
+  stat_smooth(method= "lm", se = F) +
+  labs(title  = "The number of college applications vs. the number accepted",
+       subtitle = "Acceptances predict applications, but the relationship is strongest for elite colleges")
+
+
+
+```
+
+> Your explanation goes here.
+
+> The plot you create will likely be different.
+
+> There is a strong linear relationship between Accept and Apps:  the more students accepted, the more applications.  However, this relationship varies somewhat by the percent of top 10 students.  It makes sense to test for this interaction since, as noted in class, one rule of thumb in looking for possible interactions is to interact the strongest predictors.  It is a little tricky to display an interaction between two continuous variables.  The above plot is one way of doing it.  It shows that  elite schools attract higher than expected numbers of applications. 
+
+> In the model, centering the inputs makes both the intercept and the main effects interpretable.  We can interpret the coefficients as follows: the intercept is the expected  number of Apps when Accept and Top10perc are average;  the main effect of Accept  is the expected number of applications associated with a one unit increase in Accept when Top10perc is zero, or average; the main effect of top10perc, similarly, is the expected number of Apps associated with a one unit increase in Top10perc when Accept is zero, or average; the interaction  tells us that the regression line between Accept and Apps increases by 1419 for every unit increase in Top10perc, or, conversely, the regression line between Accept and Top10perc increases by 1419 for every unit increase in Accept.
+
+> Another way to think about these relationships is to calculate and display the proportion of elite schools that get more applications than the model predicts versus fewer applications. 
+
+```{r}
+
+elite_model <- lm(Apps~ Accept + Top10perc, data = cimp)
+
+new <- cbind(cimp, fitted = fitted(elite_model))
+new$residuals <- new$Apps - new$fitted 
+
+new$PercTopTen <- ifelse(new$Top10perc > 70, "elite", "less elite")
+
+new %>%
+  group_by(PercTopTen) %>%
+  summarize(count = n(),
+            pos_residual = sum(ifelse(Apps - fitted > 0, 1,0)),
+            prop_highApps = pos_residual/count)
+
+ggplot(new, aes(fitted, residuals, col = PercTopTen)) +
+  geom_point() +
+  geom_hline(yintercept = 0, col = 2, lty = 2) +
+  labs(title  = "Residuals by college elite status (> .7 top ten)",
+       subtitle = "Elite colleges get more applications that expected given acceptance rate")
+
+
+
+```
+
+
+### Logistic regression
+
+Download the Pima dataset from the folder for Lab 5 in Canvas. Is any cleaning necessary?  It doesn't look like it. Impute missing observations using the median of each variable (do not use missForest). Remember to remove the first column, which is just a row number and, as such, useless for modeling.
+
+
+```{r}
+# Your code  should go here.  
+p <- read.csv("pima.csv")[,-1] # remove row 1
+
+# Impute with caret
+p_imp <- preProcess(p, "medianImpute") %>%
+  predict(newdata = p)
+
+# Check the result
+head(p_imp)
+summary(p_imp)
+```
+
+**Question 6**: Using the cleaned and imputed Pima dataset, fit a model with centered and scaled inputs that predicts type using  all the predictors (degrees of freedom = 524). We'll call this the "full model."  Next, create a new model that includes age as a categorical predictor (binned into quartiles). We'll call this the "cat model" (for categorical). The easiest way to do bin age is to use the `quantile()` function as an argument within the `cut()` function. Be sure to use `include.lowest = T` as an argument to cut().  It would look something like this, with `x` as the data object:  `cut(data$x, quantile(data$x), include.lowest = T)`.  Center and scale the predictors in this model. Which of the two models --- the one with age as a continuous (full model) or the one with age as a categorical variable (cat model) ---is better?  Use AIC to answer the question.
+
+```{r}
+# Your code goes here
+full_model <- glm(type ~ npreg+
+                    glu +
+                    bp +
+                    skin +
+                    bmi +
+                    ped +
+                    age,
+                  data = p_imp, 
+                  family = binomial) %>%
+  standardize 
+
+full_model %>%
+  summary  # AIC 482
+
+p_imp$age_cat <- cut(p_imp$age, breaks = quantile(p_imp$age), include.lowest = T)
+
+cat_model <- glm(type ~ npreg+
+                   glu +
+                   bp +
+                   skin +
+                   bmi +
+                   ped +
+                   age_cat,
+                 data = p_imp, 
+                 family = binomial) %>%
+  standardize
+
+cat_model %>%
+  summary # AIC 472
+
+
+```
+
+> Your answer goes here.
+
+>The model with categorical age seems to be a little better, judging by AIC.  AIC is slightly lower: 372 vs 382.  AIC is a useful metric because, in penalizing for number of predictors (model complexity), it allows the researcher to avoid overfitting:  the addition of a predictor may drive down in-sample error even as it increases AIC, indicating overfitting.
+
+
+**Question 7**: Interpret the coefficients for the categorical age variable in the above cat model (522 df) as log odds. You should be interpreting 3 coefficients, plus the intercept. By "interpret" I mean that you should explain the coefficients---the actual numbers in the model output: what do they signify? 
+
+> Your answer goes here.
+
+> Note my answers are for coefficients created by dividing the inputs by 2 sd.
+
+> We interpret a logistic model using log odds exactly as we would for a linear model.
+- *Intercept*: -1.99 is the log odds of having diabetes when all the predictors are 0 or, for categorical variables, at the reference level.
+- *age_cat(23,28]*: .66 is the change in the log odds of diabetes associated with an increase in age from the reference level to this one.
+- *age_cat(28, 38]*: 1.6 is the change in the log odds of diabetes associated with an increase in age from the reference level to this one.
+- *age_cat(38,81]*: 1.58 is the change in the log odds of diabetes associated with an increase in age from the reference level to this one.
+
+As I said in the video lecture, converting log odds into probabilities can be tricky.  With log odds we can get a sense of the relative magnitude of effect sizes (some are bigger than others), or whether an effect is positive or negative.  Otherwise, log odds aren't meaningful.  We must translate them into  probabilities.  We do that using the model equation and the inverse logit function.
+
+For example, to calculate the probability that someone who is average in all the predictors has diabetes we could use the intercept from a centered model. This example uses the above model with categorical age (cat_model). I am using the imputed dataset, which I have titled "p_imp."
+
+```{r}
+
+coef(cat_model) # Here are all the coefficients
+
+coef(cat_model)[1] # Here is just the intercept
+
+# But we have a categorical predictor for age, so we need to find
+# the category that contains mean age. 
+
+mean(p_imp$age)
+
+# Mean age of 31.6 would be in the third age category or the 9th
+# coefficient.
+
+coef(cat_model)[9]
+
+# Here is the log odds of an average person having diabetes:
+
+coef(cat_model)[1] + coef(cat_model)[9]
+
+# Then we use the invlogit function to wrap the equation and 
+# transform log odds into a probability :
+
+invlogit <- function(x) exp(x)/(1 + exp(x)) # define the function
+
+invlogit(coef(cat_model)[1] + coef(cat_model)[9]) # wrap the equation
+
+# or, the same thing, turning off the coefficients we do not 
+# want (by multiplying by 0) and turning on the ones we do
+# want (by multiplying by 1).
+
+invlogit(coef(cat_model)[1] + 
+           coef(cat_model)[2]*0 + 
+           coef(cat_model)[3]*0 + 
+           coef(cat_model)[4]*0 + 
+           coef(cat_model)[5]*0 + 
+           coef(cat_model)[6]*0 + 
+           coef(cat_model)[7]*0 + 
+           coef(cat_model)[8]*0 + 
+           coef(cat_model)[9]*1 +
+           coef(cat_model)[10]*0)
+
+```
+
+Thus, according to this model, someone who is average in all respects has a .4 probability of having diabetes.
+
+**Question 8**: Using the same cat model calculate the probability of diabetes for someone who has a scaled BMI of .3 (assuming that scaling has been done by dividing by 2 sd) but who is average in all the other predictors.  
+
+```{r}
+# Your code goes here
+
+# We include the intercept and the third age category as above,
+# but now we add the coefficient for BMI multiplied by .3, and 
+# then take the inverse logit of the resulting value
+
+invlogit(coef(cat_model)[1] + 
+           coef(cat_model)[6]*.3 + 
+           coef(cat_model)[9]) 
+
+```
+ 
+> Your answer goes here. 
+
+> The probability is .49.
+
+**Question 9**: Using the same model, calculate the *change* in the probability of diabetes associated with increasing scaled BMI from 0 (average) to .3 for someone who is average in all the other predictors.  
+
+```{r}
+# Your code goes here
+
+# We subtract the average probability from the probability at .3:
+
+invlogit(coef(cat_model)[1] + 
+           coef(cat_model)[6]*.3 + 
+           coef(cat_model)[9]) -
+  invlogit(coef(cat_model)[1] + 
+             coef(cat_model)[6]*0 + 
+             coef(cat_model)[9]) 
+
+```
+
+> Your answer goes here
+
+> The probability of diabetes increases by .09.
+
+**Question 10**:  Please score yourself on this lab using the answer key.  For each question, reflect on the difficulty of the question for you and whether you:
+
+- Did not try (just copied the answer key or left it blank).
+- Looked at the answer key to get a hint.
+- Tried but got the wrong answer.
+- Tried and got the right answer.
+
+>Write your answers here.
+
+**Next step.**  After you've finished this lab, go take Quiz 5.  You have one try at the quiz, limited to 30 minutes.  There are five multiple choice and multiple answer questions focusing on the material from this lab.
