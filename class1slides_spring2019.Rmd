@@ -4,7 +4,7 @@ subtitle: Class 1
 author: Jeff Webb
 output: 
   beamer_presentation:
-    incremental:  true
+    incremental:  false
     # fig_width: 8
     # fig_height: 7
     fig_caption: false
@@ -18,6 +18,7 @@ knitr::opts_chunk$set(echo = FALSE, message = F, warning = F)
 library(knitr)
 library(tidyverse)
 library(magrittr)
+library(arm)
 ```
 
 ## Tonight's agenda
@@ -25,41 +26,32 @@ library(magrittr)
 - Who should take this course?
 - Course elements.
 - Why study data science? 
+- Introductions.
 - Conceptual framework for the course
-- Class 1 script: Set up RStudio, start using R to do some analysis
+- Class 1 script: Introduction to R and RStudio
 
 
 # What is this course about?
 
 ## Course topics
 
-This is a graduate level course in applied statistics using R, with an emphasis on linear and logistic regression models. For comparison we will also briefly discuss some machine learning approaches to regression and classification tasks. The engaged student should expect to develop foundational skills for data analysis. Core statistical topics covered will include:
+- **This is a graduate level course in applied statistics using R**.
+- We will be taking a deep dive into linear and logistic regression modelling. 
+- For comparison we will also study some machine learning approaches to regression and classification tasks. 
+- You will learn how to: 
+    + Explore data.
+    + Fit, assess, improve and interpret models.
+    + Deal with real world data (missing values, outliers, messy structures).
+    + Communicate and explain your results to non-experts.
+- You will gain experience taking an analysis from raw data to finished product, and along the way will learn to use efficient workflows and make your research reproducible.
 
-- Exploratory data analysis
-- Statistical inference
-- Linear regression (including model assumptions and diagnostics)
-- Model selection and regularization
-- Using models for prediction (and related issues such as overfitting and cross-validation)
-- Logistic regression
-- Statistical communication
 
-## Course learning objectives
+## Regression example
 
-This course will help you develop the skills necessary to be a working data analyst or data scientist.  You will learn how to:
-
-- Explore, summarize, and visualize data using appropriate descriptive techniques;
-- Pick statistical methods that are appropriate for the data and the research question;
-- Develop and compare multiple models, checking for violations of model assumptions and assessing model fit;
-- Choose the best model for the analytic context;
-- Interpret and translate results for non-expert audiences;
-- Make your research reproducible.
-- Above all, I hope you will learn how to **think with data** by asking questions to guide your analysis and then, having completed that analysis, being able to understand and communicate the business value of your results.
-
-## Business analytics example
-
-- This course will be focused on various forms of regression as a staple technique for data analysis.
-- With regression we can (among other things):
-    + **describe** the relationships between variables in a data sample (and assess whether those relationships are artifacts of chance).
+- Why study  regression?  
+- Linear and logistic regression models work well for both description and prediction, and computationally they are fast, allowing the analyst to learn quickly from the data.
+- With these models we can:
+    + precisely **describe** the relationships between variables in a data sample (and assess whether those relationships are artifacts of chance).
     + create a model to **predict** unknown  values of the outcome variable given known inputs.
 - Regression models are easy to fit and extremely powerful, *yet they are also easy to misuse and misinterpret*
 
@@ -111,19 +103,20 @@ display(lm(mpg ~cyl + hp + wt, data= mtcars))
 
 - James, G., Witten, D., Hastie, T., and Tibshirani, R. (2013). **An introduction to statistical learning**. Springer. This is the main textbook for the course. It is available to download for free at the above link (look in the upper right corner of the page:  "Download the book PDF"). The print book is available from Amazon.
 
-## Supplementary course texts
+<!-- ## Supplementary course texts -->
 
-- Gelman, A., and Hill, J. (2007). **Data analysis using regression/hierarchical models**. Cambridge: Cambridge UP. Several chapters from this book will be posted on Canvas as a supplementary resource.
-- Webb, J. (2017). **Course Notes for IS-6489, Statistics and Predictive**. The notes cover the course material in a lot of detail, with many specific code examples.
+<!-- - Gelman, A., and Hill, J. (2007). **Data analysis using regression/hierarchical models**. Cambridge: Cambridge UP. Several chapters from this book will be posted on Canvas as a supplementary resource. -->
+<!-- - Webb, J. (2017). **Course Notes for IS-6489, Statistics and Predictive**. The notes cover the course material in a lot of detail, with many specific code examples. -->
 
 ## Course schedule
 
 - Thursdays, 6 - 10 PM, during semester terms II and III.
-- However,  this will be a hybrid course, with some lecture material available online, to be watched before class.  Our nightly schedule will usually go from 6 - 8:30 PM.
+- However,  this will be a hybrid course, with some lecture material available online, to be watched before class.  Our nightly schedule will usually go from 6 - 8:30 PM or so.  Tonight we will go longer.
+- We'll plan to take a break at about 7:15 PM.
 
 ## Homework
 
-- **Video lectures.**  You should plan to watch the weekly videos before class.  The lectures include embedded comprehension quizzes.
+- **Video lectures.**  You should plan to watch the weekly videos before class.  For example, week 2 lecture videos and slides should be watched *before* week 2.
 - **Readings.**  Weekly readings from *An introduction to statistical learning* should be completed before class. 
 - **Labs.** There will be weekly labs consisting in questions embedded in interactive R notebooks. 
 - **Weekly quizzes.** To ensure that you have understood the material in the labs, there will be short weekly quizzes covering the same material. 
@@ -132,22 +125,23 @@ display(lm(mpg ~cyl + hp + wt, data= mtcars))
 
 The final project will consist in a prediction competition that will require you to practice the skills you learned in the class.
 
-- You can choose to work in a group no larger than three or, if you prefer, by yourself. 
+- You can choose to work in a group no larger than three or, if you prefer, by yourself. (It is an advantage to work in a group.)
 - There will be an interim report due midway through the semester to ensure that you're making progress on the project, and a final report due a week after the last class.
 
 ## Methods of instruction
 
-- Class sessions will be a mix of review lecture and practice. I will rehearse concepts and tools from the lecture videos and then, depending on the topic, we will practice live coding or work through and discuss data analysis problems and exercises. 
-- I like to teach interactively, so please do not hesitate to ask questions during the class. Chances are, if you have a question about the material, someone else does too: you will be doing everyone a favor by asking your question. 
-- You should expect to work in small groups occasionally and to present your findings to the class.  I will also occasionally cold call on students for answers to problems.   
+- Class sessions will be a mix of review lecture and practice. I will rehearse concepts and tools from the lecture videos and then we will practice live coding or work through and discuss data analysis problems and exercises. 
+- I like to teach interactively, so please do not hesitate to ask questions during the class! 
+- You should expect to work in small groups occasionally and to present your findings to the class.  
+- I will also occasionally cold call on students for answers to problems and questions.   
 - Slides will be available prior to class for download, if you want to follow along on your own computer.
 - The script created during live coding will be posted to Canvas afterwards for your reference.
 
-## Learning R 
+<!-- ## Learning R  -->
 
-- If you have never done any programming, learning R can be a challenge. 
-- Be tenacious in puzzling through the examples in class and use the tutorials at Datacamp.  You will pick it up quickly. 
-- Make use of office hours and the TA.
+<!-- - If you have never done any programming, learning R can be a challenge.  -->
+<!-- - Be tenacious in puzzling through the examples in class and use the tutorials at Datacamp.  You will pick it up quickly.  -->
+<!-- - Make use of my office hours and the TA's study sessions. -->
 
 # Data Science
 
@@ -166,7 +160,7 @@ From 2011:
 
 Mckinsey & Company, *Big data: The next frontier for innovation, competition, and productivity* (2011).
 
-## Why data science? The trend continues.
+## Why data science? Shortage of talent.
 
 From LinkedIn, May 2018:
 
@@ -193,16 +187,126 @@ Data scientists extract, visualize and communicate insights from data.  They are
 - RStudio!
 - The tidyverse collection of packages:  dplyr, ggplot2, tidyr ....
 
+# Introductions
+
+## Data scientists have interesting career paths!
+
+- I once worked in a venture capital firm with these employees:
+    + Math PhD
+    + Physics undergrad (no degree)
+    + PhD in Ancient Semitic Languages
+    + English PhD (me)
+    + Computer Science MS
+    + Wildlife Biology MS, who had formerly managed data science at Ebay
+    + Econ PhD
+    
+## Me
+
+- BA in Philosophy, PhD in American Literature.
+- First academic job at the National University of Singapore in an Honors College.
+- Became interested in statistics while doing educational assessment for a program for first year students at the University of Utah.
+- Got hired as a statistical researcher just before finishing my MS in Statistics.  (Never went back.)
+- My last industry job was directing the data science team at Salt Lake Community College.
+
+## You
+
+- Form groups of 2 or 3 with those sitting near you.
+- Introduce yourselves and have a conversation for 5 or 10 minutes:
+    + Where are you from?
+    + What is your educational and professional background?
+    + Why are you interested in studying analytics?
+    
+
+
 # Conceptual Framework for the Course
 
 ## Statistical learning
 
-- Earlier we fit a linear regression model
+From *An Introduction to Statistical Learning*:
+
+"Statistical learning refers to a vast set of tools for understanding data.  These tools can be classified as supervised or unsupervised. Broadly speaking, supervised statistical learning involves building a statistical model for predicting, or estimating, an output based on one or more inputs....  With unsupervised statistical learning there are inputs but no outputs; nevertheless we can learn relationships and structure from such data." (1)
+
+## Conceptual framework
+
+We will introduce the conceptual framework for the course by making some key distinctions:
+
+- Supervised learning vs. unsupervised learning
+- Regression vs. classification
+- Prediction vs. description
+
+## Example dataset:  mtcars (first six rows)
 
 
+```{r}
+data(mtcars)
+knitr::kable(head(mtcars[,c("mpg","cyl","hp","wt")]))
 
-## Description vs. Prediction
+```
 
-## Supervised vs. unsupervised learning
+## Supervised learning
+
+- Earlier we discussed the `mtcars` dataset and a simple regression model:  `mpg ~ cyl + hp + wt`.
+- The tilde in this formula means "explained by" or "modeled by."
+- Each row in the dataset (or *observation*) represents multiple pieces of information on kinds of cars from the 1970s.
+- In this case, `mpg` is the *outcome variable* (also known as the dependent, target or response variable).
+- `cyl`, `hp` and `wt` are the *predictors* (also known as independent variables, inputs, features or fields).
+- The goal in supervised learning is to use the recorded relationships between the predictors and the outcome to develop (or "learn") a model that can be used for prediction or description.
+
+## Unsupervised learning
+
+- Imagine that all we have in the `mtcars` dataset is the `mpg` variable.
+- Can we cluster observations by putting cars with similar `mpg` into groups?
+- In this case there is no supervision, no previously observed groupings we can rely on to guide us in assigning a group to a new observation.
+- Instead, the learning is *unsupervised*: we do the best we can, using  algorithms like k-means clustering or hierarchical clustering, to find structure in the data.
+- In this course we consider only *supervised learning*.  
 
 ## Regression vs. classification
+
+- There are two main types of supervised learning: regression and classification.
+- In *regression problems* the outcome is unbounded and continuous:  `r round(rnorm(10), 2)`.... 
+- For regression we will use linear regression and K-nearest neighbors (KNN) regression.
+- In *classification problems* the outcome is binary and the goal is to learn a model of class membership denoted by categopries such as 0/1 or no/yes or passed/failed.
+- For classification we will use logistic regression, KNN classification and support vector machines.
+
+## Prediction vs. description
+
+- Machine learning algorithms like KNN and SVM work well for prediction. 
+- But they don't work that well for description because the model is hidden:  they are "black box" algorithms providing little interpretable information about the relationship between predictors and outcome.
+- By contrast, linear and logistic regression work well for both prediction and description. 
+- These models learn an equation that can be used not only to predict unknown outcomes but also to describe relationships between the predictors and a known outcome.
+- An example....
+
+## Prediction
+
+```{r}
+ds <- mtcars[1:9,c("mpg","wt")]
+ds$mpg[7:9] <- "?"
+knitr::kable(ds)
+
+```
+
+- *Predictive goal*:  Learn a model that will fill in the missing outcome values.
+
+ 
+## Description
+
+```{r}
+knitr::kable(ds)
+```
+
+- *Descriptive goal*:  Learn a model that will describe the relationship between mpg and wt.
+
+## Model of mpg
+
+```{r}
+#lm(mpg ~ wt, data= mtcars)
+
+ggplot(mtcars, aes(wt, mpg)) +
+  geom_point() +
+  theme_minimal() +
+  stat_smooth(method="lm", se = F)+
+  geom_text(label="Model: mpg = 37.29 - 5.34 * wt", x= 4, y= 30, size = 8)
+```
+
+- **Description**: wt increases by 1, mpg declines by 5.34.
+- **Prediction**: when wt = 4.5, mpg = 37.29 - 5.34 * 4.5.
