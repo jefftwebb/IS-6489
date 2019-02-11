@@ -1,0 +1,208 @@
+---
+title: "IS 6489: Statistics and Predictive Analytics"
+subtitle: Class 1
+author: Jeff Webb
+output: 
+  beamer_presentation:
+    incremental:  true
+    # fig_width: 8
+    # fig_height: 7
+    fig_caption: false
+    
+  
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = F, warning = F)
+library(knitr)
+library(tidyverse)
+library(magrittr)
+```
+
+## Tonight's agenda
+- What is this course about?
+- Who should take this course?
+- Course elements.
+- Why study data science? 
+- Conceptual framework for the course
+- Class 1 script: Set up RStudio, start using R to do some analysis
+
+
+# What is this course about?
+
+## Course topics
+
+This is a graduate level course in applied statistics using R, with an emphasis on linear and logistic regression models. For comparison we will also briefly discuss some machine learning approaches to regression and classification tasks. The engaged student should expect to develop foundational skills for data analysis. Core statistical topics covered will include:
+
+- Exploratory data analysis
+- Statistical inference
+- Linear regression (including model assumptions and diagnostics)
+- Model selection and regularization
+- Using models for prediction (and related issues such as overfitting and cross-validation)
+- Logistic regression
+- Statistical communication
+
+## Course learning objectives
+
+This course will help you develop the skills necessary to be a working data analyst or data scientist.  You will learn how to:
+
+- Explore, summarize, and visualize data using appropriate descriptive techniques;
+- Pick statistical methods that are appropriate for the data and the research question;
+- Develop and compare multiple models, checking for violations of model assumptions and assessing model fit;
+- Choose the best model for the analytic context;
+- Interpret and translate results for non-expert audiences;
+- Make your research reproducible.
+- Above all, I hope you will learn how to **think with data** by asking questions to guide your analysis and then, having completed that analysis, being able to understand and communicate the business value of your results.
+
+## Business analytics example
+
+- This course will be focused on various forms of regression as a staple technique for data analysis.
+- With regression we can (among other things):
+    + **describe** the relationships between variables in a data sample (and assess whether those relationships are artifacts of chance).
+    + create a model to **predict** unknown  values of the outcome variable given known inputs.
+- Regression models are easy to fit and extremely powerful, *yet they are also easy to misuse and misinterpret*
+
+## mtcars dataset (first six rows)
+
+
+```{r}
+data(mtcars)
+knitr::kable(head(mtcars[,1:6]))
+
+```
+
+
+## Let's create a simple model of  mpg
+
+
+```{r message=F, warning=F}
+library(arm)
+display(lm(mpg ~cyl + hp + wt, data= mtcars))
+
+```
+
+## Questions
+
+- What do these coefficients mean exactly? How would we translate them  into  meaningful quantities for a client with no background in statistics?
+- Is this a good model?  If we wanted to make it better, which variables should be added or removed?
+- How would we know if adding or removing variables improved the model?
+- Should any of these variables be transformed or should any outlying observations be removed from the dataset?
+- Does this model violate any of the mathematical assumptions  of  linear regression?
+- **Using modern statistical software to fit models is easy, but understanding, validating, improving and communicating your results can be a challenge.**
+- This course will equip you for that challenge.
+
+# Who should take this course?
+
+## Preparation
+
+- This course is designed for Business graduate students interested in a  data science career who have:
+    - *some knowledge of statistics* (taken 1 or 2 classes).
+    - *some experience programming in R*.
+- Ideally, students will have taken "Introduction to Business Analytics" during the first 5 weeks of the term. 
+- Some preparation is essential since students with little (or barely remembered) statistics knowledge, or who have no R programmming experience, tend to struggle.
+- If your statistics and/or programming skills are weak then consider doing some preparatory course work and delaying this course.  Your learning experience will be vastly better.
+
+# Course elements
+
+## Main course texts
+
+- **Datacamp.** Students have free access to all of the content at Datacamp through the end of the semester. (Email me if you have not received an invitation to the IS 6489 group at Datacamp or experience problems with your account.) 
+
+- James, G., Witten, D., Hastie, T., and Tibshirani, R. (2013). **An introduction to statistical learning**. Springer. This is the main textbook for the course. It is available to download for free at the above link (look in the upper right corner of the page:  "Download the book PDF"). The print book is available from Amazon.
+
+## Supplementary course texts
+
+- Gelman, A., and Hill, J. (2007). **Data analysis using regression/hierarchical models**. Cambridge: Cambridge UP. Several chapters from this book will be posted on Canvas as a supplementary resource.
+- Webb, J. (2017). **Course Notes for IS-6489, Statistics and Predictive**. The notes cover the course material in a lot of detail, with many specific code examples.
+
+## Course schedule
+
+- Thursdays, 6 - 10 PM, during semester terms II and III.
+- However,  this will be a hybrid course, with some lecture material available online, to be watched before class.  Our nightly schedule will usually go from 6 - 8:30 PM.
+
+## Homework
+
+- **Video lectures.**  You should plan to watch the weekly videos before class.  The lectures include embedded comprehension quizzes.
+- **Readings.**  Weekly readings from *An introduction to statistical learning* should be completed before class. 
+- **Labs.** There will be weekly labs consisting in questions embedded in interactive R notebooks. 
+- **Weekly quizzes.** To ensure that you have understood the material in the labs, there will be short weekly quizzes covering the same material. 
+
+## Project
+
+The final project will consist in a prediction competition that will require you to practice the skills you learned in the class.
+
+- You can choose to work in a group no larger than three or, if you prefer, by yourself. 
+- There will be an interim report due midway through the semester to ensure that you're making progress on the project, and a final report due a week after the last class.
+
+## Methods of instruction
+
+- Class sessions will be a mix of review lecture and practice. I will rehearse concepts and tools from the lecture videos and then, depending on the topic, we will practice live coding or work through and discuss data analysis problems and exercises. 
+- I like to teach interactively, so please do not hesitate to ask questions during the class. Chances are, if you have a question about the material, someone else does too: you will be doing everyone a favor by asking your question. 
+- You should expect to work in small groups occasionally and to present your findings to the class.  I will also occasionally cold call on students for answers to problems.   
+- Slides will be available prior to class for download, if you want to follow along on your own computer.
+- The script created during live coding will be posted to Canvas afterwards for your reference.
+
+## Learning R 
+
+- If you have never done any programming, learning R can be a challenge. 
+- Be tenacious in puzzling through the examples in class and use the tutorials at Datacamp.  You will pick it up quickly. 
+- Make use of office hours and the TA.
+
+# Data Science
+
+## Why data science? Free and ubiquitous data.
+
+"The ability to take data --- to be able to understand it, to process it, to extract value from it, to visualize it, to communicate--- will be a hugely important skill in the next decades, because now we really do have essentially free and ubiquitous data. So the complimentary scarce factor is the ability to understand that data and extract value from it. **I keep saying the sexy job in the next ten years will be statisticians**."
+
+Hal Varian, Google Chief Economist and UC Berkeley Professor, *The McKinsey Quarterly*, January 2009
+
+
+
+## Why data science? A trend of more and more data.
+From 2011:
+
+"By 2018, the United States alone could face a shortage of 140,000 to 190,000 people with deep analytical skills as well as 1.5 million managers and analysts with the know-how to use the analysis of big data to make effective decisions."
+
+Mckinsey & Company, *Big data: The next frontier for innovation, competition, and productivity* (2011).
+
+## Why data science? The trend continues.
+
+From LinkedIn, May 2018:
+
+![](data-science.png)
+
+
+## Why data science? Interesting work.
+
+![](jobs3.png)
+
+
+## What is a data scientist?
+
+Data scientists extract, visualize and communicate insights from data.  They are skilled at statistics, programming and telling stories.
+
+![](data_scientist2.png)
+
+## Why R?
+
+- R is an open-source, object-oriented programming language that was invented to do statistics and is widely used.
+- Solutions to coding problems abound on the web.
+- Cutting edge techniques are immediately available as packages (long before they are incorporated into commercial software).
+- Makes collaboration and peer review easy (if your colleagues are using R).
+- RStudio!
+- The tidyverse collection of packages:  dplyr, ggplot2, tidyr ....
+
+# Conceptual Framework for the Course
+
+## Statistical learning
+
+- Earlier we fit a linear regression model
+
+
+
+## Description vs. Prediction
+
+## Supervised vs. unsupervised learning
+
+## Regression vs. classification
