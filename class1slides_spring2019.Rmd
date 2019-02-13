@@ -25,7 +25,7 @@ library(arm)
 - Why study data science? 
 - Introductions.
 - Conceptual framework for the course
-- Class 1 script: Set up RStudio and get started with R
+- Class 1 script: Set up RStudio (and RStudio cloud) and get started with R
 
 
 # What is this course about?
@@ -50,7 +50,7 @@ library(arm)
 - With these models we can:
     + precisely **describe** the relationships between variables in a data sample (and assess whether those relationships are artifacts of chance).
     + create a model to **predict** unknown  values of the outcome variable given known inputs.
-- Regression models are easy to fit and extremely powerful.  Yet even for experts complicated models *are easy to misuse and misinterpret*.
+- Regression models are easy to fit and extremely powerful.  Yet even for experts complicated regression models *are easy to misuse and misinterpret*.
 
 ## Business problem
 
@@ -58,7 +58,7 @@ library(arm)
 - Companies would like to retain existing customers since it is more profitable to keep a customer than to find a new one. 
 - We can use a classification model to identify customers  who are likely to churn when their contracts expire. 
 - Of course, we also need to ask what we would do with that knowledge:  Should we offer an incentive to re-enroll? If so, how much and who should get it? 
-- These are important questions.  We'll set them aside for now to focus on the *analytical problem* of identifying customers likely to churn. 
+- We'll set  aside these important questions for now to focus on the *analytical problem* of identifying customers likely to churn. 
 
 ## Telcom dataset (first six rows, selected columns)
 
@@ -76,13 +76,19 @@ knitr::kable(head(churn[,c(2,3, 5, 6, 21)]))
 
 ```{r message=F, warning=F}
 library(arm)
-display(glm(Churn ~ gender + SeniorCitizen + tenure , family = binomial, data= churn))
+library(broom)
+
+#glm(Churn ~ gender + SeniorCitizen + tenure , family = binomial, data= churn) %>%
+#  summary 
 
 ```
+
+![](model1.png)
 
 ## Questions
 
 ![](model.png)
+
 
 - What do these coefficients mean exactly? How would we translate them  into  meaningful quantities for a client with no background in statistics?
 - Is this a good model?  If we wanted to make it better, which variables should be added or removed?
@@ -132,7 +138,7 @@ display(glm(Churn ~ gender + SeniorCitizen + tenure , family = binomial, data= c
 
 - Thursdays, 6 - 10 PM, during semester terms II and III.
 - However,  this will be a hybrid course, with some lecture material available online, to be watched before class.  Our nightly schedule will usually go from 6 - 9 PM or so. 
-- We'll plan to take a break at about 7:15 PM.
+- We'll plan to take a break at about 7:15 - 30 PM. I'm open to suggestions for alternate schedules.
 
 ## Homework
 
@@ -145,7 +151,8 @@ display(glm(Churn ~ gender + SeniorCitizen + tenure , family = binomial, data= c
 
 - The final project will consist in a prediction competition that will require you to practice the skills you learned in the class.
 - You can choose to work in a group no larger than three or, if you prefer, by yourself. (It is an advantage to work in a group.)
-- If you want to work by yourself or want to form a group of your choice then please sign yourself up by the third week of the class (look for the "form project groups" assignment). Otherwise, students who remain unassigned after the third class meeting will be randomly placed into a project group.
+- If you want to work by yourself or want to form a group of your choice then please sign yourself up by the third week of the class (look for the "form project groups" assignment). 
+- Students who remain unassigned after the third class meeting will be randomly placed into a project group.
 - There will be an interim report due midway through the semester to ensure that you're making progress on the project, and a final report due a week after the last class.
 
 ## Methods of instruction
@@ -198,7 +205,7 @@ Data scientists extract, visualize and communicate insights from data.  They are
 
 ![](data_scientist2.png)
 
-## Data science for business
+## Data science for *business*
 
 - This course is similar to---but also importantly different from---a data science course you might take in the Math or CS department.
 - You will learn analytical methods in this course but our focus will be on *application*: how to use the methods *to solve business problems.*
@@ -208,6 +215,9 @@ Data scientists extract, visualize and communicate insights from data.  They are
     2. Recommend an incentive program based on your analysis of the cost of the program compared to the benefit of retaining customers.
     3. Make a case for your recommendation with compelling visualizations and clear explanations.
 
+## The big picture: Cross Industry Standard Process for Data Mining (CRISP-DM)
+
+![](CRISP-DM.png)
 
 ## Why R?
 
@@ -241,13 +251,13 @@ Data scientists extract, visualize and communicate insights from data.  They are
 
 ## You
 
-- Form groups of 2 or 3 with those sitting near you.
+- Go to PollEv.com/jeffwebb768 to take the "getting to know you" live poll.
+
+- Next, form groups of 2 or 3 with those sitting near you.
 - Introduce yourselves and have a conversation for 5 or 10 minutes:
     + Where are you from?
     + What is your educational and professional background?
     + Why are you interested in studying analytics?
-    
-
 
 # Conceptual Framework for the Course
 
@@ -342,3 +352,24 @@ ggplot(mtcars, aes(wt, mpg)) +
 
 - **Description**: wt increases by 1, mpg declines by 5.34.
 - **Prediction**: when wt = 4.5, mpg = 37.29 - 5.34 * 4.5.
+
+## Conceptual framework quiz
+
+- Go to PollEv.com/jeffwebb768.
+
+```{r, echo = F}
+data1 <- data.frame(gender = c("M", "F", "F", "M"),
+                    age = c(18, 37, 21, 20),
+                    state = c("MN", "OK", "MN", "WI"))
+
+
+```
+
+
+
+## Getting started with R and RStudio
+
+- Download and install RStudio if you have not already done so.
+- Find "class1 script.R" at Canvas and download it. You will find it in your downloads folder.
+- Await further instructions ....
+- As you are waiting go to https://rstudio.cloud and set up an account.  
