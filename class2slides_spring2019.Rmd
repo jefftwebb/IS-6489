@@ -1,0 +1,173 @@
+---
+title: "IS 6489: Statistics and Predictive Analytics"
+subtitle: Class 2
+author: Jeff Webb
+output: 
+  beamer_presentation:
+    incremental:  true
+    # fig_width: 8
+    # fig_height: 7
+    fig_caption: false
+    
+  
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = F, warning = F)
+library(knitr)
+library(tidyverse)
+library(magrittr)
+library(arm)
+bike <- read.csv("day.csv")
+```
+
+## Tonight's agenda
+
+- Details
+- Questions about the course or the material?
+- Live poll review
+- Review: tidy data
+- Review:  Why EDA?
+- EDA workflow
+- .Rmd script on tidy data and EDA workflow; mini-project.
+- Note:  My assumption tonight is that you've studied the lecture and tutorial videos for week 2 and are ready to practice the concepts and techniques covered there. 
+
+# Details 
+
+## Details
+
+- My office hours: 9:30 AM - 10:30 AM Tuesday or by appointment.
+- TA Ali Samanazari: ali.samanazari at utah.edu. Ali will conduct weekly tutorial sessions on Mondays, 5 - 6 PM in SFEBB 5163.  Please also feel free to email him with any questions about R programming or other course content.
+- Homework coming up is *Introduction to the Tidyverse* at Datacamp.  If you want more to do I would suggest additional courses in dplyr, ggplot2 or tidyverse.
+
+# Questions
+
+## Questions
+
+- Any questions on the course or the material so far that I can address?
+
+# Live poll review
+
+## live poll review
+
+Go to PollEv.com/jeffwebb768
+
+# Tidy data
+
+## Messy data
+- As noted:  all messy datasets are messy in their own way, which makes it hard to generalize about how to fix them. 
+- Nevertheless, here are some guidelines for tidy data:
+    1. Each variable must have its own column.
+    2. Each observation must have its own row (meaning that each value must have its own cell).
+    3. A table should be dedicated to same observational unit.
+- Adapted from *R for Data Science* by Wickham and Grolemund.    
+
+## Messy data
+
+Tuberculosis cases and population by country and year. What's messy here?
+
+```{r}
+data(table2)
+
+table2
+
+```
+
+
+## Messy data
+
+What's messy here?
+
+```{r}
+data(table3)
+
+table3
+
+```
+
+## Messy data
+
+What's messy here?
+
+```{r}
+data(table4a)
+
+table4a
+
+```
+
+## Tidy data
+
+```{r}
+data(table1)
+
+table1
+
+```
+
+# Why EDA?
+
+## Reminder:  Cross Industry Standard Process for Data Mining (CRISP-DM)
+
+![](CRISP-DM.png)
+
+## Simpson's paradox
+
+```{r include=F}
+simpsons <- read.csv("simpsons_data.csv")[,-1]
+
+```
+
+```{r include=T, echo =F}
+head(simpsons, 15) %>% kable
+```
+
+## Simpson's paradox
+
+```{r echo=F}
+ggplot(simpsons, aes(x, y)) +
+  geom_point() +
+  theme_minimal()
+```
+
+
+## Simpson's paradox
+
+```{r echo=F}
+ggplot(simpsons, aes(x, y)) +
+  geom_point() +
+  stat_smooth(method="lm", col=2, se=F) +
+  theme_minimal()
+```
+
+## Simpson's paradox
+
+```{r echo=F}
+ggplot(simpsons, aes(x, y, col=group, group=group)) +
+  geom_point() +
+  stat_smooth(method="lm", se=F, col = 1) +
+  theme_minimal()
+```
+
+## Why EDA?
+
+- We explore the data prior to fitting a model so that we understand the idiosyncrasies of the data and can make informed modelling decisions.
+- In the case of Simpson's paradox data we may be interested in the relationship between x and y, but through EDA we (hopefully) learn that we need to examine the relationship between x and y *within* each group.
+
+## EDA workflow
+
+After understanding the business context and the motivating business problem for the analysis:
+
+1. Formulate a question 
+2. Read in your data 
+3. Check the packaging 
+4. Inspect dataset:  str(), glimpse(), View()
+5. Look at the top and the bottom of your data 
+6. Summarize the data 
+7. Try the easy solution first 
+8. Challenge your solution
+9. Follow up questions
+
+- Adapted from *Exploratory Data Analysis* by Roger Peng.
+
