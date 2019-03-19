@@ -1,0 +1,358 @@
+---
+title: "Class 3 Exercise"
+author: "Answers"
+date: "2/26/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(knitr)
+library(magrittr)
+```
+
+## Scenario
+
+You work as a data scientist at a company that sells widgets. The CEO and owner is extremely engaged in looking at the most recent data on sales but is not a statistician and is prone to pay too much attention to meaningless day-to-day and month-to-month fluctuations.
+
+January 2, 8 AM:  The CEO comes into your office and expresses worry about widget sales for the most recent month, December.  She thinks sales have tanked and wants you to look into the situation further and provide a brief report by noon. Widget demand is seasonal and the business depends on strong holiday sales. She wants a brief report on her desk by noon. 
+
+## Topics
+
+1. EDA workflow
+2. Practice data manipulation and visualization
+3. Statistical inference
+4. Communication
+
+
+## Process
+
+- Please gather into groups of 2 or 3 to work on this project!
+- Put group members' names up above in the yaml heading under "author" (where it currently says "Names of those in your group").
+- Collaborate on one document.
+- When you are done, compile to HTML (or PDF), and submit through Canvas.
+
+## EDA workflow
+
+1. Formulate a question:  Are last month's sales (month 12 of year 5) down?
+
+2. Read in your data.  For this exercise we will simulate a dataset.
+
+```{r}
+
+widget <- expand.grid(year = 1:5, month = 1:12, day = 1:30)
+
+# The expand.grid() function creates a dataframe with unique combinations of the values
+# from each variable. Here we are setting up a data.frame for 5 years of data.
+
+head(widget)
+
+set.seed(1126) # Use set.seed() to ensure identical datasets
+
+# Now, simulate sales data using the uniform distribution and the normal distribution:
+# runif() and rnorm().  For simplicity we will pretend each month has exactly
+# 30 days.
+
+widget %<>%
+  mutate(sales = ifelse(month < 12, 
+                        runif(5 * 11 * 30, min = 800, max = 1200) +
+                          rnorm(5 * 11 * 30, mean = 100, sd = 100),
+                        runif(5 * 11 * 30, min = 1100, max = 1300) +
+                          rnorm(5 * 11 * 30, mean = 100, sd = 100)),
+         sales = ifelse(month == 12 & year == 5, 
+                        sales - rnorm(30, mean = 100, sd = 30),
+                        sales),
+         year = factor(year),
+         month = factor(month)) %>% 
+  arrange(year, month, day) %>%
+  mutate(instance = 1:(5*12*30)) # instance is a row counter.
+
+head(widget)
+
+```
+
+3. Check the packaging: dim(), nrow(), ncol()
+
+```{r}
+
+dim(widget)
+
+```
+
+4. Inspect the dataset: str(), glimpse(), View()
+
+Note that in order to knit you must comment out View()!
+
+```{r}
+str(widget)
+glimpse(widget)
+# View(widget)
+```
+
+5. Look at the top and the bottom of your data: head(), tail()
+
+```{r}
+head(widget)
+tail(widget)
+```
+
+6. Summarize the data: summary(), table(), hist()
+
+```{r}
+summary(widget)
+hist(widget$sales)
+```
+
+7. Try the easy solution first 
+
+    + Plot daily sales
+    
+```{r}
+
+ggplot(widget, aes(instance, sales)) +
+  geom_line() +
+  labs(title = "time series of daily sales")
+
+ggplot(widget, aes(sales)) +
+  geom_density() +
+  labs(title = "density plot of daily sales")
+
+```
+
+
+Sales is approximately normally distributed.
+
+```{r}
+
+
+```
+
+    + Plot monthly sales
+    
+```{r}
+ggplot(widget, aes(sales, col = month)) +
+  geom_density() +
+  labs(title = "density plot of daily sales by month")
+
+ggplot(widget, aes(month, sales)) +
+  geom_boxplot() +
+  labs(title = "boxplot of daily sales by month")
+
+ggplot(widget, aes(sales, col = year)) +
+  geom_density() +
+  facet_wrap(~month) +
+  labs(title = "density plot of daily sales by month and year")
+
+
+```
+
+    + Plot yearly sales
+    
+```{r}
+
+ggplot(widget, aes(sales, col = year)) +
+  geom_density() +
+  labs(title = "density plot of daily sales by year")
+
+ggplot(widget, aes(year, sales)) +
+  geom_boxplot() +
+  labs(title = "boxplot of daily sales by year")
+
+ggplot(widget, aes(sales, col = month)) +
+  geom_density() +
+  facet_wrap(~year) +
+  labs(title = "density plot of daily sales by month and year")
+
+
+```
+
+The December seasonal difference is clearly apparent---but less so in year 5.
+   
+    + Summarize total and average sales by month, and calculate confidence intervals.
+
+```{r}
+
+widget %>%
+  group_by(month) %>%
+   summarize(total_sales = sum(sales),
+             avg_sales = mean(sales),
+             n = n(),
+             sem = sd(sales)/sqrt(n),
+             lower = avg_sales - 2*sem,
+             upper = avg_sales + 2*sem) %>%
+  kable(digits = 2, caption = "total and average sales by month")
+
+```
+    
+    + Summarize total and average sales by  year, and calculate confidence intervals. For the CIs remember that SEM = s / sqrt(n) and that the interval is mean -/+ 1.96 * SEM.
+    
+
+```{r}
+
+widget %>%
+  group_by(year) %>%
+   summarize(total_sales = sum(sales),
+             avg_sales = mean(sales),
+             n = n(),
+             sem = sd(sales)/sqrt(n),
+             lower = avg_sales - 2*sem,
+             upper = avg_sales + 2*sem) %>%
+  kable(digits = 2, caption = "total and average sales by year")
+
+```
+
+8. Challenge your solution
+
+    + Plot monthy sales facetted by year
+
+```{r}
+ggplot(widget, aes(month, sales)) +
+  geom_boxplot() +
+  facet_wrap(~year) +
+  labs(title = "Daily sales by month and year")
+
+```
+
+This plot suggests that while month 12 is generally higher than the other months, month 12 in year five was lower compared to the other month 12's.
+
+    + Plot monthly sales colored by year
+
+
+```{r}
+
+widget %>%
+  group_by(month, year) %>%
+   summarize(total_sales = sum(sales)) %>%
+  ggplot(aes(month, total_sales, col= year, group = year)) +
+  geom_line() +
+  labs(title = "Total monthly sales by year")
+
+```
+
+This plot suggests that months one through 11 in years 1 to 4 are the same. These data are very noisy. In month 12 we see a seasonal spike in sales. But  less so in year five. This is the difference we want to assess.
+
+    + Summarize total and average sales by month and year, and calculate confidence intervals.
+
+
+```{r}
+
+widget %>%
+  group_by(month, year) %>%
+   summarize(total_sales = sum(sales),
+             avg_sales = mean(sales),
+             n = n(),
+             sem = sd(sales)/sqrt(n),
+             lower = avg_sales - 2*sem,
+             upper = avg_sales + 2*sem) %>%
+  kable(digits = 2, caption = "total and average sales by month and year")
+
+widget %>%
+  group_by(month, year) %>%
+   summarize(total_sales = sum(sales),
+             avg_sales = mean(sales),
+             n = n(),
+             sem = sd(sales)/sqrt(n),
+             lower = avg_sales - 2*sem,
+             upper = avg_sales + 2*sem) %>%
+  filter(month == 12) %>%
+  kable(digits = 2, caption = "total and average sales for month 12 by year")
+
+```
+
+9. Follow up questions. See next section.
+
+## Statistical inference 
+
+Answer the CEO's question:  Is there a real drop in year 5 month 12 sales or is the difference just due to random variation? 
+
+How would you approach this question?
+
+There are many different ways!
+
+What is the null hypothesis? Remember that the way NHST reasoning works  is to assert the truth of what we want to disprove, or examine. In this case we will start off by defining the null hypothesis as: no difference in  month 12 between year 1 to 4 on the one hand and year five on the other.
+
+It would also be plausible to compare year five just to year four.  Why? We are dealing with a time series of sales. And since the world changes with time, the comparison between recent and more distant years is sometimes not relevant: too much has changed. So comparing year four and year five essentially controls for a lot of other differences.  Hence,
+
+```{r}
+y4 <- subset(widget, month == 12 & year == 4)$sales
+y5 <- subset(widget, month == 12 & year == 5)$sales
+
+mean(y4) - mean(y5)
+
+t.test(y4, y5, test = "two-sided") 
+```
+
+How do we interpret this output? Notice that the t-test produces a T statistic, just as the output from a linear model does.  That is because lm() is using the t-distribution  as the null distribution for coefficients. The T statistic just tells you how extreme the observation is. You can think of it as expressed in standard deviations. So a T statistic of 4.99 tells us that the observed value is almost 5 standard deviations away from zero in the null distribution. So, quite extreme. This is reflected in the P value, which is very small. Remember the P value is essentially the probability density of values that are equal to or more extreme than the observed value. The probability of getting the observed value under the null distribution is very very low.
+
+The t-test also produces a 95% confidence interval for the difference between the means. That interval essentially tells us the expected variation in the difference in mans under repeated sampling. If our null hypothesis is no difference, that is, a difference of zero, between the two vectors of daily sales, then the interval suggests that a difference of zero is very improbable.
+
+These two pieces of information, the P value and confidence interval, well coming at the problem in different ways, are converging at the same answer. A confidence interval that does not include zero is consistent with a P value of less than .05.
+
+We can come very close to reproducing the confidence interval reported by the t-test with the following code:
+
+```{r}
+(lower <- mean(y4 - y5) - 1.96 * sqrt(var(y4) + var(y5))/sqrt(30) )
+(upper <- mean(y4 - y5) + 1.96 * sqrt(var(y4) + var(y5))/sqrt(30) )
+```
+
+Notice that the calculation of the standard error of the mean is a little tricky, because it is the standard error for difference between two sets of observations.  The variance of a difference is the variance of the first set of observations plus the variance of the second set. And then to get the standard deviation to be used in our formula for SEM, we need to take the square root.
+
+We could also calculate the P value directly in R.   Here we will use the normal density, which  has less density in the tails than the t-distribution, so the P value will be likely smaller than we calculated above using the t-test.  We multiply by two in order to get a two-tailed test. That means we are calculating the probability density symmetrically in both tails of the null distribution.
+
+```{r}
+pnorm(abs(mean(y5 - y4)), 
+      mean = 0, 
+      sd = sqrt(var(y4) + var(y5))/sqrt(30), 
+      lower.tail = F) * 2
+```
+
+It would also be possible, and perhaps even  preferable, to develop  a confidence interval for sales in month 12 for years 1 to 4, as mentioned in class, and then just check to see if sales in month five are outside of that confidence interval. This is a neat way of using a  confidence interval. Why preferable? Well, it allows us to base our analysis not just on year four, but on the four previous years. That might be important, based on your assessment of the business.
+
+```{r}
+widget %>%
+  filter(year %in% 1:4, month == 12) %>%
+  summarize(avg_sales = mean(sales),
+            n = n(),
+            sem = sd(sales)/ sqrt(n),
+            lower = avg_sales- 2*sem,
+            upper = avg_sales + 2*sem) %>%
+  kable(digits = 2, caption = "average sale and CIs for sale in month 12, years 1-4")
+
+widget %>% 
+  filter(month==12, year==5) %>%
+  summarize(avg_sales = mean(sales))
+
+```
+
+Here we can see that the confidence interval for month 12 in years 1 to 4 is about 1280 to 1320.  The observed value for average sales in month 12 year five is much lower. So we can conclude that the difference in sales is not just random noise  due to sampling variation but suggests a population
+difference: the most recent month 12 was significantly lower than in previous years.
+
+And of course we could use a linear model, as we discussed in class. 
+
+```{r}
+lm(sales ~ year, data = subset(widget, month == 12)) %>%
+  summary
+```
+
+This doesn't quite give us what we want, because the model is comparing year five to year one, which is represented in the intercept. If we wanted to compare year five to year four, say, as we have done in the other analyses, then we would need to change the factor structure of year, to do that comparison. Like this,
+
+```{r}
+widget %<>%
+  mutate(new_year = factor(year, levels = c(4, 1, 2, 3, 5)))
+
+levels(widget$new_year)
+
+lm(sales ~ new_year, data = subset(widget, month == 12)) %>%
+  summary
+
+```
+
+
+## Communication 
+
+The widget business is seasonal, with an upsurge in sales during December. However, the most recent December showed a smaller increase relative to the prior 11 months than has been the case in previous years. Is this difference due merely to random variation, or does it represent a  significantly different volume that is  worth exploring further?
+
+Statistical analysis suggests that the most recent December is significantly different from previous Decembers in terms of sales volume. For example, on average,  sales volume in December in years one through four was about 1300. We would expect that average to vary  between about 1280 and 1320.  Last month's average sales were quite a bit lower than that, at 1158. This leads us to conclude that this lower volume  is not just random.  The sources of this difference should be investigated further.  That being said, it should also be noted that the difference is fairly modest, did not cause an appreciable decline in *annual* sales, and is cause for concern but not panic.
+
+

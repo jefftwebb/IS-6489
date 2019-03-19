@@ -1,0 +1,323 @@
+---
+title: "IS 6489: Statistics and Predictive Analytics"
+subtitle: Class 4
+author: Jeff Webb
+output: 
+  beamer_presentation:
+    incremental:  false
+    # fig_width: 8
+    # fig_height: 7
+    fig_caption: false
+    
+  
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = F, warning = F)
+library(knitr)
+library(tidyverse)
+library(magrittr)
+library(arm)
+day <- read.csv("day.csv")
+```
+
+## Agenda
+
+- Questions
+- Final Project
+- Quiz review
+- Linear regression review
+- Practice scenario
+
+#  Questions?
+
+##  Questions?
+
+- Questions on the material or the course for this week?
+
+# Final project
+
+## Final project
+
+- Everyone should now be in a group, so get started!
+- There are lots of NAs in the data.  What do they mean?  **Read the data dictionary carefully.**
+- First assignment:  interim report on the 5 variable model **due in 2 weeks**.  
+- Your goal should be to create the best possible model with just 5 variables.  Benchmark in-sample $R^2$: .8.
+- Rules for the interim report:  you may feature engineer, and transform variables, but no interactions. 
+- Try different methods: linear regression, KNN regression.
+- In the final model no rules:  you may use any variables, with interactions, along with additional, created variables or transformations and any method (or combination of methods, in an ensemble model). Your goal in the final model, pure and simple, is predictive accuracy.
+- Questions?
+
+#  Weekly quizzes
+
+## Weekly quizzes
+
+- The quizzes have been designed for assessment not learning.
+- Unfortunately, if I distribute the correct answers for your review then those answers get shared and the quizzes no longer work for assessment.  I wish it were otherwise.
+- Therefore, you will not be able to see which *exact* mistakes you may have made.
+- However, in class we will review the quiz questions *generally*. 
+- You can rest assured that if you understand the review then you understand the material on the quiz.
+- Also note that for the multiple answer questions it does not pay to guess since Canvas subtracts for incorrect answers.
+- Remember: I drop your lowest lab and lowest quiz scores in calculating your final grade.
+
+## Function question
+
+- R is a functional language so it is critical to understand---and use---functions. (If you find yourself doing something more than 3 times then write a function.)
+- Example function:  `my_mean <- function(x){sum(x) / length(x)}`.
+- What is the argument to my_mean?
+- Is the argument to my_mean() a vector or number?
+- Is the output from my_mean() a vector or number?
+
+## Central tendency question
+
+- If a continuous distribution has a mean substantially *larger* than the median  then:  right skew? left skew?
+- If a continuous distribution has a mean substantially *smaller* than the median  then:  right skew? left skew?
+- Should we use the median or the mean to represent the central tendency of a skewed distribution? Why?
+- Could we use the mode?
+- Imagine that we have a lot of missing observations in a column that we need to impute.  The first quartile of the column is 18, the third quartile is 33 and the mean is 31.75.  Should we impute with the mean or the median?
+
+## Plots question
+
+- When do we use the following plots:
+    + histogram or density plot?
+    + scatterplot?
+    + boxplot?
+    
+## Sample variability question
+
+- 2 things affect sample variability:  underlying **population variance** (estimated by sample standard deviation, $s$) and **$n$**.
+- SEM estimates the standard deviation of sample means under repeated sampling: $\frac{s}{\sqrt{n}}$.
+- If sample A and B have the same $s$ and the same $n$ will SEM be higher? lower? about the same?
+- If sample A and B have the same $s$ but B has lower $n$ will B's SEM be higher? lower? about the same?
+- If sample A and B have the same $n$ but A has larger $s$ will B's will SEM be higher? lower? about the same?
+
+## CI for sample mean question
+
+- Straightforward calculation:  $\bar x \pm 1.96(SEM)$
+
+# Review linear regression
+
+## Linear regression results:  what matters?
+
+\footnotesize
+```{r echo = F, size = 'footnotesize'}
+
+(model <- lm(cnt ~ yr + temp + workingday, data = day)) %>%
+  summary
+```
+
+
+## Linear regression results:  what matters?
+
+- My answer?  It depends on what you are doing but in general:
+
+1. Coefficient estimates.  
+2. Standard errors.
+
+- What about p-values? Way down the list.
+
+## What is a regression coefficient?
+
+A conditional mean:  $\textbf{E}[Y | X = x]$. From lm() output;
+
+```{r echo = F}
+lm(cnt ~ yr, data = day) 
+
+
+```
+
+## What is a regression coefficient?
+
+A conditional mean:  $\textbf{E}[Y | X = x]$. From dplyr summarize():
+
+```{r echo = F}
+day %>%
+  group_by(yr) %>%
+  dplyr::summarize(`average ridership` = round(mean(cnt))) %>%
+  kable
+
+```
+
+## What is a regression coefficient?
+
+- $Y_{x+1} - Y_{x} = \hat \beta$
+- $\hat \beta$ is an **effect size**, the **slope** of the regression line, quantifying the relationship between a predictor and outcome.
+
+- 2 interpretations:
+    + The average predicted difference in the outcome comparing two groups that differ by 1 unit in the predictor but are otherwise the same
+    + The average predicted change in the outcome associated with (counterfactually) increasing in the predictor by one unit, while holding the other attributes constant.
+    
+- Why does $\hat \beta$   have a hat? Why are coefficients referred to as "estimates"?
+
+## $\hat \beta$   has a hat because we are working with samples
+
+```{r  echo = F}
+
+ggplot(day, aes(temp, cnt)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F, alpha = .3, col = 2)+
+  theme_minimal() +
+  labs(title = "cnt ~ temp")
+```
+
+## $\hat \beta$   has a hat because we are working with samples
+
+
+```{r echo = F}
+
+ggplot(day, aes(temp, cnt)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F, alpha = .3, col = 2)+
+  geom_smooth(data=day[sample(731, 100),], aes(temp, cnt), method = "lm", se = F, alpha = .3) +
+  theme_minimal()+
+  labs(title = "cnt ~ temp, based on samples of n = 100")
+
+```
+
+## $\hat \beta$   has a hat because we are working with samples
+
+
+```{r  echo = F}
+
+ggplot(day, aes(temp, cnt)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = F, alpha = .3, col= 2)+
+  geom_smooth(data=day[sample(731, 100),], aes(temp, cnt), method = "lm", se = F, alpha = .3)+
+  geom_smooth(data=day[sample(731, 100),], aes(temp, cnt), method = "lm", se = F, alpha = .3)+
+  geom_smooth(data=day[sample(731, 100),], aes(temp, cnt), method = "lm", se = F, alpha = .3)+
+  geom_smooth(data=day[sample(731, 100),], aes(temp, cnt), method = "lm", se = F, alpha = .3)+
+  geom_smooth(data=day[sample(731, 100),], aes(temp, cnt), method = "lm", se = F, alpha = .3)+
+  geom_smooth(data=day[sample(731, 100),], aes(temp, cnt), method = "lm", se = F, alpha = .3)+
+  geom_smooth(data=day[sample(731, 100),], aes(temp, cnt), method = "lm", se = F, alpha = .3)+
+  geom_smooth(data=day[sample(731, 100),], aes(temp, cnt), method = "lm", se = F, alpha = .3)+
+  geom_smooth(data=day[sample(731, 100),], aes(temp, cnt), method = "lm", se = F, alpha = .3)+
+  theme_minimal()+
+  labs(title = "cnt ~ temp, based on samples of n = 100")
+
+
+```
+
+## What is the standard error?
+
+- The SE of a regression coefficient is the standard deviation of the sampling distribution of $\hat \beta$.
+- If we use $\hat \beta \pm 2(SE)$ we obtain a 95% CI for $\hat \beta$ which
+    + represents the estimates that are most consistent with the observed data
+    + includes more information for *thinking about the data* than a p-value
+- 95% CI for $\hat \beta$ that does not include 0 means that the effect is likely not due to sampling variability.  
+- Why?
+    
+## Forest plot
+
+```{r  echo = F}
+library(sjPlot)
+plot_model(model, title = "Coefficient estimates for model: cnt ~ temp + yr + workingday") +
+  theme_minimal()
+```
+
+## P-values
+
+- Be careful: small p-values are **not** an indication of the strength of a relationship but merely how likely it is due to chance. (Small p-value means:  would rarely happen by chance under the null distribution.)
+    + a relationship could be tiny but significant: not meaningful in a practical sense. 
+    + a relationship could be large and insignificant: might be meaningful but uncertain.
+    + a relationship could be large and significant: meaningful.
+- Advice: Focus on effect sizes and CIs rather than (or in addition to) p-values.
+- Why?
+
+## P-values
+
+- Technically p-values are generated by comparing a null distribution from $T(n - p -1)$ with the observed $\hat \beta$.
+- This contrasts with comparing 0 to the 95% CIs for the observed $\hat \beta$ (as in a forestplot).
+
+## P-values
+
+```{r  echo = F}
+df <- data.frame(x =seq(-3,3,.01))
+df$y <- dt(df$x, 727)
+
+ggplot(df, aes(x,y)) +
+  geom_line() +
+  theme_minimal() +
+  labs(title = "T-distribution for df = 727")
+
+```
+
+## P-values
+
+```{r  echo = F}
+df <- data.frame(x =seq(-3,3,.01))
+df$y <- dt(df$x, 727)
+
+ggplot(df, aes(x,y)) +
+  geom_line() +
+  theme_minimal() +
+  labs(title = "T-distribution for df = 727, with critical values") +
+  geom_vline(xintercept = -1.96, lty=2) +
+  geom_vline(xintercept = 1.96, lty=2) 
+
+
+
+```
+
+## P-values
+
+```{r  echo = F}
+df <- data.frame(x =seq(-3,3,.01))
+df$y <- dt(df$x, 727)
+
+ggplot(df, aes(x,y)) +
+  geom_line() +
+  theme_minimal() +
+  labs(title = "T-distribution for df = 727, with critical values and observed t-value for workingday") +
+  geom_vline(xintercept = -1.96, lty=2) +
+  geom_vline(xintercept = 1.96, lty=2) +
+  geom_vline(xintercept = 1.47, lty=2, col = 2) 
+
+```
+
+
+# Centering and scaling
+
+## Centering and scaling 
+
+- Centering and scaling  inputs to a regression (AKA standardizing) **solves problems** and **creates problems**.
+- You must learn when to standardize and when not to standardize.
+- Centering: $x - \bar x$
+- Scaling: $\frac{x}{sd(x)}$ or  $\frac{x}{2sd(x)}$
+- Centering and scaling puts all variables on the same scale by turning inputs into z-scores:  all inputs are expressed by their distance, measured in sd, from 0 in a standard normal distribution.
+- Another option is, for example, min-max normalization which scales all inputs between 0 and 1.
+- Many machine learning algorithms require standardized/normalized numeric inputs.
+- Standardizing/normalizing does not change the fit of a linear model but is only a convenience for interpretation.
+
+## Centering and scaling: solves problems 
+
+- The intercept is not interpretable in a regression model in which a predictor never equals 0.
+- Main effects of interacted variables are not interpretable when the variable never equals 0.
+- Effect sizes are difficult to interpret when variables are on dramatically different scales,
+- For centered and scaled variables 0 is average, hence at the center of the distribution.
+- Note: it is possible to just center or just scale.
+
+## Centering and scaling: creates problems 
+
+- A 1 unit change is expressed in terms of 1 (or 2) sd of the predictor. 
+- This can be hard to interpret:  you lose your intuitive connection to real-world scales.
+
+## Centering and scaling
+
+\footnotesize
+```{r echo = F}
+summary(model)
+```
+
+## Centering and scaling
+
+\footnotesize
+```{r echo = F}
+summary(standardize(model))
+```
+
+# Practice scenario
+
+## Practice scenario
+
+- Find class4exercise_spring2019.Rmd at Canvas

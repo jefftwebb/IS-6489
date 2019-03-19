@@ -1,0 +1,351 @@
+---
+title: "Class 4 Exercise Solutions"
+author: "Names of those in your group"
+date: "3/5/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(knitr)
+library(magrittr)
+day <- read.csv("day.csv")
+```
+
+## Scenario
+
+In class 2 we worked on the following scenario.
+
+The Capitol City bikeshare program started in 2011, the first year in the data.  Getting the business off the ground was hectic, with lots of administrative challenges.  There was not a lot of free time for looking at the data to gather insights into the business.  Fortunately data collection was part of the business plan from the beginning.  Now, in 2013, after two years of successful operation (not without some hiccups), it is time to examine the data.  The manager has hired your team to do an initial review of the data.  
+
+Additionally, in Lab 1 you created a rough predictive table for ridership using month, day of week and weather. (Hopefully this exercise showed you that you can actually accomplish a lot with some very simple analytics.)
+
+Suppose that your team ended up getting hired by the Manager of the Capitol City bikeshare program to do more analytic work. Your main two objectives in the next iteration of this project include the following:
+
+1. Create a model-based prediction chart that improves on the one from Lab 1.
+2. Answer the Manager's question:  "Ridership has grown dramatically in the last two years.  Should we  purchase more bikes for the program?"
+
+She has made additional datasets available for your use.
+
+## Topics
+
+1. Practice:  data manipulation and visualization
+2. Predictive modeling
+3. Using a predictive model for a prescriptive task:  "*should* we buy more bikes?"
+4. Communication
+
+
+## Process
+
+- Please gather into groups of 2 or 3 to work on this project!
+- Put group members' names up above in the yaml heading under "author" (where it currently says "Names of those in your group").
+- Collaborate on one document.
+- When you are done, compile to HTML (or PDF), and submit through Canvas.
+- Download the bikeshare data from Canvas (day.csv).  
+- Download also the following files:  
+    + 2011-capitalbikeshare-tripdata.csv
+    + 2012Q1-capitalbikeshare-tripdata.csv
+    + 2012Q2-capitalbikeshare-tripdata.csv
+    + 2012Q3-capitalbikeshare-tripdata.csv
+    + 2012Q4-capitalbikeshare-tripdata.csv
+    
+## Data
+
+- instant: record index
+- dteday : date
+- season : season (1:spring, 2:summer, 3:fall, 4:winter)
+- yr : year (0: 2011, 1:2012)
+- mnth : month ( 1 to 12)
+- hr : hour (0 to 23)
+- holiday : weather day is holiday or not
+- weekday : day of the week
+- workingday : if day is neither weekend nor holiday is 1, otherwise is 0.
+- weathersit : 1: Clear, Few clouds, Partly cloudy, Partly cloudy; 2: Mist + Cloudy, Mist + Broken clouds, Mist + Few clouds, Mist; 3: Light Snow, Light Rain + Thunderstorm + Scattered clouds, Light Rain + Scattered clouds
+- 4: Heavy Rain + Ice Pallets + Thunderstorm + Mist, Snow + Fog
+- temp : Normalized temperature in Celsius. 
+- atemp: Normalized feeling temperature in Celsius. 
+- hum: Normalized humidity. The values are divided to 100 (max)
+- windspeed: Normalized wind speed. The values are divided to 67 (max)
+- casual: count of casual users
+- registered: count of registered users
+- cnt: count of total rental bikes including both casual and registered
+
+## Demonstration: predictive modeling
+
+In Lab 1 we created this table, based on the observation that month, day of week and temperature are strong predictors of ridership:
+
+```{r}
+day <- day %>%
+  group_by(mnth) %>%
+  mutate(above_avg_temp = ifelse(temp > mean(temp), 1, 0),
+         avg_temp = mean(temp))
+  
+day %>%
+  group_by(mnth, weekday, above_avg_temp) %>%
+  dplyr::summarize(num_riders = n(),
+            avg_temp = round(mean(avg_temp),2),
+            predicted_riders = round(mean(cnt)),
+            SEM = sd(cnt)/sqrt(num_riders),
+            lower = round(mean(cnt)- 2*SEM),
+            upper = round(mean(cnt)+ 2*SEM)) %>%
+  dplyr::select(-SEM, -num_riders)
+
+```
+
+This is useful.  One problem, though, is that as we try to refine this table by adding more variables, defining each row more specifically, we lower the number of available observations. And of course we can't use the dplyr approach to forecast.
+
+Let's try using a model.  This is a demonstration, starting simple. The same approach could be used to create a more complicated table.
+
+1. Create multivariable model:
+
+```{r}
+
+(model <- lm(cnt ~ yr +
+              factor(mnth) +
+              factor(weekday) +
+              temp,
+            data = day)) %>%
+  summary
+
+```
+
+2. Create data frame of values for which we would like predictions.  The expand.grid() function creates unique combinations of each variable.
+
+```{r}
+# Set up
+prediction_frame <- expand.grid(yr = 1:3,
+                                mnth= 1:12,
+                                weekday = 0:6,
+                                temp = quantile(day$temp))
+# Inspect 
+dim(prediction_frame)
+
+head(prediction_frame) 
+```  
+
+3. Use your model to create a prediction for each row, and append that prediction to the prediction dataframe:
+
+```{r}
+# Predict
+prediction_frame$prediction <- predict(model, newdata = prediction_frame) %>%
+  round
+
+# Inspect
+head(prediction_frame)
+
+# Visualize
+prediction_frame %>%
+  filter(yr == 3, mnth ==1) %>%
+  ggplot(aes(factor(weekday), prediction, group = factor(temp), col = factor(temp))) +
+           geom_line()
+
+```
+
+This table will have ridership predictions for an unobserved year, 3, for different months, weekdays and temperatures. **How much should we trust the predictions for the upcoming year?**
+
+Well, as mentioned in class, maybe we should take those predictions with a grain of salt.  Why? There is always a danger in extrapolating a linear trend beyond the support of the data. There is no reason to believe that the trend will extend infinitely into the future. At some point, the bike share program will stop growing. In particular, the trend observed from year one to year two probably represents the largest growth. Perhaps we should not expect that the growth from year two to year three will be the same. Yet our linear model assumes that it will be the same. Hence, we should  regard that extrapolation with some skepticism.  With just two years of data we don't have much information to adjust the forecast; this is just one of the uncertainties inherent in prediction.
+
+## Using a predictive model for a prescriptive task:  "*should* we buy more bikes?"
+
+Your turn. As noted, there are additional datasets for this mini-project.  The problem with the bikeshare data we've been using is that it tracks ridership, not bikes.  But the manager's question is about bikes.  The additional data contains bike IDs for 2011 and 2012.
+
+Your objective is to work in your group to come up with an answer to the question that is grounded in analytics. Please show your work in code chunks!
+
+Deliverables:
+
+1. A paragraph or two describing and explaining your recommendation.
+2. A plot that captures your strongest insight.
+3. This .Rmd document compiled to HTML and submitted though Canvas:  "Class 4 Exercise"
+
+1. Get the data
+
+```{r}
+trips_2011 <- read.csv("2011-capitalbikeshare-tripdata.csv")
+trips_2012Q1 <- read.csv("2012Q1-capitalbikeshare-tripdata.csv")
+trips_2012Q2 <- read.csv("2012Q2-capitalbikeshare-tripdata.csv")
+trips_2012Q3 <- read.csv("2012Q3-capitalbikeshare-tripdata.csv")
+trips_2012Q4 <- read.csv("2012Q4-capitalbikeshare-tripdata.csv")
+
+```
+
+
+Obviously there were problems downloading the data into RStudio cloud, which I did not anticipate. I apologize for that.  Here is a snapshot of the data.
+
+```{r}
+glimpse(trips_2011) 
+glimpse(trips_2012Q1)
+glimpse(trips_2012Q2)
+glimpse(trips_2012Q3)
+glimpse(trips_2012Q4)
+
+```
+
+Notice that the bikeshare  program manager has asked a question not about riders but about bikes. The dataset we have been working with, day.csv, records daily ridership, so cannot help us answer the question about bikes. However, these new datasets include a unique bike identifier, bike.number.  We can do some manipulation to produce summary data sets for further analysis.
+
+2.  Descriptive questions:
+
+**How many bikes does the program own?  Has the number of bikes grown in 2011 and 2012?**
+
+```{r}
+str(trips_2011) # 1325 bikes in 2011.   
+
+# Notice that bike.number was brought in as a factor variable so we can 
+# calculate the number of unique bikes by looking at the number of factor levels.
+
+#  Alternatively, we can use the following code:
+
+length(unique(trips_2011$Bike.number))
+
+#  To simplify things, let's combine all the 2012 data together.
+trips_2012 <- rbind(trips_2012Q1,
+                    trips_2012Q2,
+                    trips_2012Q3,
+                    trips_2012Q4)
+
+str(trips_2012)
+
+length(unique(trips_2012$Bike.number)) # 1749 bikes
+
+```
+
+ It looks like the program purchased about 400 bikes in 2012. 
+
+**How many bikes got used each day?**
+
+The next step is to  create a summary  data set consisting in  counts of  bikes used per day.  This is the data set that I shared on canvas.
+
+```{r}
+
+bike_data <- rbind(trips_2011, trips_2012) %>%
+  mutate(day = substr(Start.date, 1, 10)) %>%
+  group_by(day) %>%
+  summarize(bikes = length(unique(Bike.number)))
+
+ glimpse(bike_data)
+
+#  Create a year and tranform into 0:2
+
+bike_data <- bike_data %>%
+  mutate(year = substr(day, 1, 4),
+         year = ifelse(year == "2011", 0, 1))
+
+glimpse(bike_data)
+
+#  what is the maximum number of bikes used per day per year?
+
+bike_data %>%
+  group_by(year) %>%
+  summarize(max_bikes = max(bikes))
+```
+
+We can see that the  total number of bikes increased by about 400  but the max number of bikes used each day increased by more than that.  Notice that the max bikes used on any given day was less than the total number of bikes because, presumably, bikes at some stations did not get used.
+
+3. Analysis: Does the bike share program need to purchase more bikes in 2013 to handle demand? 
+
+There are a number of different ways to approach this question, and there were good ideas in class.
+
+Let's make a simplifying assumption that the number of bikes owned by the program in 2011 and 2012 was adequate to meet ridership demand.  
+
+One method would be to ignore the ridership data and  use just the bike data to forecast for 2013.
+
+```{r}
+
+(m1 <- lm(bikes ~ year, data = bike_data)) %>%
+  summary
+
+```
+
+This model has calculated a simple conditional mean: 424 represents the increase in bikes used, *on average*, in 2012 over 2011.   We would expect a similar average increase, given this model, in 2013.  So a first pass at an answer would suggest that the bike share program needs to buy 424 bikes  for the coming year to keep up with demand.  Formally, we can do the calculation like this:
+
+```{r}
+predict(m1, newdata = data.frame(year = 0:2))
+
+# or, using the model formula:
+
+708.32 + 423.51 * 2
+
+```
+
+
+Let's think about this.  These model coefficients represent the average change in bikes used associated with a one unit change in year. But there is a problem with this. In each year the total number of bikes owned, as we've seen, was greater than the maximum used in each year. So a model of bikes used will not directly give us information about the total number of bikes that the program needs to own.
+
+How do we use the the predicted average number of bikes that will be used per day in 2013 (1555 bikes) to provide a recommendation to the program manager for the number of bikes to purchase?
+
+ Again, assuming that the total number of bikes owned in 2011 and 2012 was sufficient  then we can simply use the ratio of bikes used, based on the model, to bikes owned in those years to provide guidance for 2013.
+ 
+```{r}
+predict(m1, newdata = data.frame(year = 0))/1325
+ 
+predict(m1, newdata = data.frame(year = 1))/1749
+
+```
+
+The ratio of bikes  used to bikes owned in 2012 was .65, which we have assumed was a sufficient fleet. Let's use that  number to estimate the number of bikes needed in 2013.
+ 
+```{r}
+predict(m1, newdata = data.frame(year = 2))/.65
+
+``` 
+
+It looks like the number of bikes needed would be around 2393, assuming the pace of growth observed in 2012 continues in 2013.  The program needs to purchase `r 2393 -1739` bikes.
+
+If we do the same analysis using the ridership data we get a similar result.
+
+```{r}
+
+(m2 <- lm(cnt ~ yr, data = day)) %>%
+  summary
+
+predict(m2, newdata = data.frame(yr = 0))/1325
+predict(m2, newdata = data.frame(yr = 1))/1749
+predict(m2, newdata = data.frame(yr = 2))/3.2
+
+```
+
+## Recommendation
+
+Sample text:
+
+The question addressed in this analysis is: "Should the bike share program purchase additional bikes for 2013."
+
+ The short answer is yes. Based on daily counts of bikes used in 2011 and 2012,  compared to the total number of bikes owned, we estimate that  the program should add 654 bikes to the fleet to cover demand for 2013.  This recommendation is based on  estimating a model of average daily bike used in 2011 and 2012 and using it to forecast  the average number that will be used in 2013. The number of bikes used on average per day in a given year is a  proportion of the total bikes owned in that year.  Assuming that these  proportions were satisfactory in 2011 and 2012, we reasoned that a similar  proportion should work in 2013. The proportion of the average bikes used per day in 2012, as estimated by the model, to bikes owned was .65.  The recommended number of bikes for 2013 is thus  the number of model forecast average daily riders divided by .65.
+
+There is obviously a lot of uncertainty involved in forecasting bike demand based on two years of data---particularly so in this case since demand in the third year is unlikely to be a linear continuation of the trend in the first two years of the program.  however, for this analysis we have assumed that it will be. This is likely to be a conservative assumption  if demand grows in 2013 at a slower pace than it grew in 2012.
+
+## Plot
+
+```{r}
+
+bike_data <- bike_data %>%
+  mutate(month = substr(day, 6, 7))
+
+(m3 <- lm(bikes ~ year + factor(month), data = bike_data)) %>%
+  summary
+
+prediction_frame <- expand.grid(month = c("01","02","03",
+                                          "04","05","06",
+                                          "07","08","09",
+                                          "10","11","12"),
+                                year = 0:2)
+
+prediction_frame$predictions <- predict(m3, newdata = prediction_frame)
+
+prediction_frame$bikes_owned <- ifelse(prediction_frame$year == 0, 1325,
+                                       ifelse(prediction_frame$year == 1, 1749, 2393)) 
+  
+prediction_frame$year <- ifelse(prediction_frame$year == 0, 2011,
+                                       ifelse(prediction_frame$year == 1, 2012, 2013)) 
+
+
+ggplot(prediction_frame, aes(month, predictions, group = 1)) +
+  geom_line() +
+  geom_hline(aes(yintercept = bikes_owned), col = 2) +
+  facet_wrap(~year) +
+  lims(y = c(400,2500)) +
+  labs(y = "bikes used vs. bikes owned (horizontal line)",
+       title = "Average bikes used per month in 2011 and 2012, forecast for 2013")+
+  theme_minimal()
+
+```
+

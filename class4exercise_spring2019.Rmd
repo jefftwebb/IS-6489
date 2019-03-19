@@ -1,0 +1,158 @@
+---
+title: "Class 4 Exercise"
+author: "Names of those in your group"
+date: "3/5/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(knitr)
+library(magrittr)
+day <- read.csv("day.csv")
+```
+
+## Scenario
+
+In class 2 we worked on the following scenario.
+
+The Capitol City bikeshare program started in 2011, the first year in the data.  Getting the business off the ground was hectic, with lots of administrative challenges.  There was not a lot of free time for looking at the data to gather insights into the business.  Fortunately data collection was part of the business plan from the beginning.  Now, in 2013, after two years of successful operation (not without some hiccups), it is time to examine the data.  The manager has hired your team to do an initial review of the data.  
+
+Additionally, in Lab 1 you created a rough predictive table for ridership using month, day of week and weather. (Hopefully this exercise showed you that you can actually accomplish a lot with some very simple analytics.)
+
+Suppose that your team ended up getting hired by the Manager of the Capitol City bikeshare program to do more analytic work. Your main two objectives in the next iteration of this project include the following:
+
+1. Create a model-based prediction chart that improves on the one from Lab 1.
+2. Answer the Manager's question:  "Ridership has grown dramatically in the last two years.  Should we  purchase more bikes for the program?"
+
+She has made additional datasets available for your use.
+
+## Topics
+
+1. Practice:  data manipulation and visualization
+2. Predictive modeling
+3. Using a predictive model for a prescriptive task:  "*should* we buy more bikes?"
+4. Communication
+
+
+## Process
+
+- Please gather into groups of 2 or 3 to work on this project!
+- Put group members' names up above in the yaml heading under "author" (where it currently says "Names of those in your group").
+- Collaborate on one document.
+- When you are done, compile to HTML (or PDF), and submit through Canvas.
+- Download the bikeshare data from Canvas (day.csv).  
+- Download also the following files:  
+    + 2011-capitalbikeshare-tripdata.csv
+    + 2012Q1-capitalbikeshare-tripdata.csv
+    + 2012Q2-capitalbikeshare-tripdata.csv
+    + 2012Q3-capitalbikeshare-tripdata.csv
+    + 2012Q4-capitalbikeshare-tripdata.csv
+    
+## Data
+
+- instant: record index
+- dteday : date
+- season : season (1:spring, 2:summer, 3:fall, 4:winter)
+- yr : year (0: 2011, 1:2012)
+- mnth : month ( 1 to 12)
+- hr : hour (0 to 23)
+- holiday : weather day is holiday or not
+- weekday : day of the week
+- workingday : if day is neither weekend nor holiday is 1, otherwise is 0.
+- weathersit : 1: Clear, Few clouds, Partly cloudy, Partly cloudy; 2: Mist + Cloudy, Mist + Broken clouds, Mist + Few clouds, Mist; 3: Light Snow, Light Rain + Thunderstorm + Scattered clouds, Light Rain + Scattered clouds
+- 4: Heavy Rain + Ice Pallets + Thunderstorm + Mist, Snow + Fog
+- temp : Normalized temperature in Celsius. 
+- atemp: Normalized feeling temperature in Celsius. 
+- hum: Normalized humidity. The values are divided to 100 (max)
+- windspeed: Normalized wind speed. The values are divided to 67 (max)
+- casual: count of casual users
+- registered: count of registered users
+- cnt: count of total rental bikes including both casual and registered
+
+## Demonstration: predictive modeling
+
+In Lab 1 we created this table, based on the observation that month, day of week and temperature are strong predictors of ridership:
+
+```{r}
+day <- day %>%
+  group_by(mnth) %>%
+  mutate(above_avg_temp = ifelse(temp > mean(temp), 1, 0),
+         avg_temp = mean(temp))
+  
+day %>%
+  group_by(mnth, weekday, above_avg_temp) %>%
+  dplyr::summarize(num_riders = n(),
+            avg_temp = round(mean(avg_temp),2),
+            predicted_riders = round(mean(cnt)),
+            SEM = sd(cnt)/sqrt(num_riders),
+            lower = round(mean(cnt)- 2*SEM),
+            upper = round(mean(cnt)+ 2*SEM)) %>%
+  dplyr::select(-SEM, -num_riders)
+
+```
+
+This is useful.  One problem, though, is that as we try to refine this table by adding more variables, defining each row more specifically, we lower the number of available observations. And of course we can't use the dplyr approach to forecast.
+
+Let's try using a model.  This is a demonstration, starting simple. The same approach could be used to create a more complicated table.
+
+1. Create multivariable model:
+
+```{r}
+
+(model <- lm(cnt ~ yr +
+              factor(mnth) +
+              factor(weekday) +
+              temp,
+            data = day)) %>%
+  summary
+
+```
+
+2. Create data frame of values for which we would like predictions.  The expand.grid() function creates unique combinations of each variable.
+
+```{r}
+# Set up
+
+prediction_frame <- expand.grid(yr = 0:2,
+                                mnth= 1:12,
+                                weekday = 0:6,
+                                temp = quantile(day$temp))
+# Inspect 
+dim(prediction_frame)
+
+head(prediction_frame) 
+```  
+
+3. Use your model to create a prediction for each row, and append that prediction to the prediction dataframe:
+
+```{r}
+# Predict
+prediction_frame$prediction <- predict(model, newdata = prediction_frame) %>%
+  round
+
+# Inspect
+head(prediction_frame)
+
+# Visualize
+prediction_frame %>%
+  filter(yr == 2, mnth ==1) %>%
+  ggplot(aes(factor(weekday), prediction, group = factor(temp), col = factor(temp))) +
+           geom_line()
+
+```
+
+This table will have ridership predictions for an unobserved year, 3, for different months, weekdays and temperatures. **How much should we trust the predictions for the upcoming year?**
+
+## Using a predictive model for a prescriptive task:  "*should* we buy more bikes?"
+
+Your turn. As noted, there are additional datasets for this mini-project.  The problem with the bikeshare data we've been using is that it tracks ridership, not bikes.  But the manager's question is about bikes.  The additional data contains bike IDs for 2011 and 2012.
+
+Your objective is to work in your group to come up with an answer to the question that is grounded in analytics. Please show your work in code chunks!
+
+Deliverables:
+
+1. A paragraph or two describing and explaining your recommendation.
+2. A plot that captures your strongest insight.
+3. This .Rmd document compiled to HTML and submitted though Canvas:  "Class 4 Exercise"
